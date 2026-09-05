@@ -1,9 +1,10 @@
 import { Role } from "@prisma/client"
-import { EmployeeForm, emptyEmployee } from "@/components/employees/EmployeeForm"
+import { EmployeeForm } from "@/components/employees/EmployeeForm"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { emptyEmployee } from "@/lib/form-defaults"
 
 export const metadata = { title: "New Employee — PeoplePay360" }
 

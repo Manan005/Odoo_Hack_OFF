@@ -1,9 +1,10 @@
 import { Role } from "@prisma/client"
-import { ContractForm, emptyContract } from "@/components/contracts/ContractForm"
+import { ContractForm } from "@/components/contracts/ContractForm"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { emptyContract } from "@/lib/form-defaults"
 
 export const metadata = { title: "New Contract — PeoplePay360" }
 

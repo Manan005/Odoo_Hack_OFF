@@ -1,9 +1,10 @@
 import { Role } from "@prisma/client"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { AllocationForm, emptyAllocation } from "@/components/timeoff/AllocationForm"
+import { AllocationForm } from "@/components/timeoff/AllocationForm"
 import { pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { emptyAllocation } from "@/lib/form-defaults"
 
 export const metadata = { title: "New Allocation — PeoplePay360" }
 

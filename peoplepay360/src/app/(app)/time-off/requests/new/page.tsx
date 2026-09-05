@@ -1,9 +1,10 @@
 import { RequestStatus } from "@prisma/client"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { RequestForm, emptyRequest, type TypeOption } from "@/components/timeoff/RequestForm"
+import { RequestForm, type TypeOption } from "@/components/timeoff/RequestForm"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { emptyRequest } from "@/lib/form-defaults"
 import { balanceOf } from "@/lib/timeoff/balance"
 
 export const metadata = { title: "New Time Off Request — PeoplePay360" }

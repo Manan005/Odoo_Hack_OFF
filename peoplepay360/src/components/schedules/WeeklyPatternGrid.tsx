@@ -34,20 +34,6 @@ export interface ScheduleFormValues {
   lines: LineValue[]
 }
 
-export const emptySchedule: ScheduleFormValues = {
-  name: "",
-  calendarType: CalendarType.FIXED,
-  timezone: "Asia/Kolkata",
-  active: true,
-  lines: [
-    Weekday.MONDAY,
-    Weekday.TUESDAY,
-    Weekday.WEDNESDAY,
-    Weekday.THURSDAY,
-    Weekday.FRIDAY,
-  ].map((day) => ({ day, startTime: "09:00", endTime: "18:00", breakHours: 1 })),
-}
-
 export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()

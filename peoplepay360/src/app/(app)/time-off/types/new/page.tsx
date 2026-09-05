@@ -1,8 +1,9 @@
 import { Role } from "@prisma/client"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { TypeForm, emptyType } from "@/components/timeoff/TypeForm"
+import { TypeForm } from "@/components/timeoff/TypeForm"
 import { pageAllows } from "@/lib/auth-guard"
+import { emptyType } from "@/lib/form-defaults"
 
 export const metadata = { title: "New Time Off Type — PeoplePay360" }
 

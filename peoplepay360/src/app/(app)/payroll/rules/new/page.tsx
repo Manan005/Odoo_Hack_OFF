@@ -1,9 +1,10 @@
 import { Role } from "@prisma/client"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { SalaryRuleForm, emptyRule } from "@/components/payroll/SalaryRuleForm"
+import { SalaryRuleForm } from "@/components/payroll/SalaryRuleForm"
 import { pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { emptyRule } from "@/lib/form-defaults"
 
 export const metadata = { title: "New Salary Rule — PeoplePay360" }
 

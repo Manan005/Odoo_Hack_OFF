@@ -30,19 +30,6 @@ export interface ContractFormValues {
   notes: string
 }
 
-export const emptyContract: ContractFormValues = {
-  employeeId: "",
-  startDate: "",
-  endDate: "",
-  wage: "",
-  status: ContractStatus.DRAFT,
-  departmentId: "",
-  jobPositionId: "",
-  workingScheduleId: "",
-  salaryStructureId: "",
-  notes: "",
-}
-
 export function ContractForm({
   initial,
   employees,

@@ -20,14 +20,6 @@ export interface RequestFormValues {
   reason: string
 }
 
-export const emptyRequest: RequestFormValues = {
-  employeeId: "",
-  typeId: "",
-  startDate: "",
-  endDate: "",
-  reason: "",
-}
-
 export interface TypeOption {
   id: string
   name: string

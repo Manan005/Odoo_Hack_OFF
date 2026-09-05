@@ -1,11 +1,9 @@
-import {
-  AttendanceForm,
-  emptyAttendance,
-} from "@/components/attendance/AttendanceForm"
+import { AttendanceForm } from "@/components/attendance/AttendanceForm"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { emptyAttendance } from "@/lib/form-defaults"
 
 export const metadata = { title: "Record Attendance — PeoplePay360" }
 

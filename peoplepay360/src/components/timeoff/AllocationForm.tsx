@@ -19,14 +19,6 @@ export interface AllocationFormValues {
   description: string
 }
 
-export const emptyAllocation: AllocationFormValues = {
-  employeeId: "",
-  typeId: "",
-  allocated: "",
-  validityLabel: "",
-  description: "",
-}
-
 export function AllocationForm({
   initial,
   employees,

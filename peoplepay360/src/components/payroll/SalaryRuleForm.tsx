@@ -33,23 +33,6 @@ export interface RuleFormValues {
   active: boolean
 }
 
-export const emptyRule: RuleFormValues = {
-  structureId: "",
-  name: "",
-  code: "",
-  category: RuleCategory.ALLOWANCE,
-  sequence: "10",
-  computationType: ComputationType.FIXED,
-  amount: "",
-  percentage: "",
-  percentageBase: PercentageBase.CONTRACT_WAGE,
-  baseRuleCode: "",
-  formula: "",
-  quantity: "1",
-  condition: "",
-  active: true,
-}
-
 const CONTEXT_FACTS = [
   "wage",
   "scheduledDays",

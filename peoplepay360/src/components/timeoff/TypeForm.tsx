@@ -27,18 +27,6 @@ export interface TypeFormValues {
   description: string
 }
 
-export const emptyType: TypeFormValues = {
-  name: "",
-  unit: TimeOffUnit.DAYS,
-  requiresAllocation: true,
-  approvalMode: ApprovalMode.MANAGER,
-  workEntryLabel: "Leave Work Entry",
-  isPaid: true,
-  displayColor: "blue",
-  active: true,
-  description: "",
-}
-
 export function TypeForm({ initial }: { initial: TypeFormValues }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()

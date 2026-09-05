@@ -46,31 +46,6 @@ export interface EmployeeFormValues {
 const TABS = ["Work Information", "Private Information", "HR Settings"] as const
 type Tab = (typeof TABS)[number]
 
-export const emptyEmployee: EmployeeFormValues = {
-  firstName: "",
-  lastName: "",
-  workEmail: "",
-  workPhone: "",
-  employeeType: EmployeeType.FULL_TIME,
-  workLocation: "",
-  departmentId: "",
-  jobPositionId: "",
-  managerId: "",
-  workingScheduleId: "",
-  active: true,
-  personalEmail: "",
-  personalPhone: "",
-  dateOfBirth: "",
-  gender: "",
-  address: "",
-  emergencyContactName: "",
-  emergencyContactPhone: "",
-  bankAccountNumber: "",
-  bankName: "",
-  bankIfsc: "",
-  joiningDate: "",
-}
-
 export function EmployeeForm({
   initial,
   departments,

@@ -25,14 +25,6 @@ export interface AttendanceFormValues {
   notes: string
 }
 
-export const emptyAttendance: AttendanceFormValues = {
-  employeeId: "",
-  checkIn: "",
-  checkOut: "",
-  status: AttendanceStatus.PRESENT,
-  notes: "",
-}
-
 export function AttendanceForm({
   initial,
   employees,

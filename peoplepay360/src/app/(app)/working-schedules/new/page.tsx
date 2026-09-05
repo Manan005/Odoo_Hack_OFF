@@ -1,8 +1,9 @@
 import { Role } from "@prisma/client"
-import { ScheduleForm, emptySchedule } from "@/components/schedules/WeeklyPatternGrid"
+import { ScheduleForm } from "@/components/schedules/WeeklyPatternGrid"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { pageAllows } from "@/lib/auth-guard"
+import { emptySchedule } from "@/lib/form-defaults"
 
 export const metadata = { title: "New Working Schedule — PeoplePay360" }
 
