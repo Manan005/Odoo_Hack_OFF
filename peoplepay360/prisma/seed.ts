@@ -949,6 +949,16 @@ async function main() {
     )
   }
 
+  // Warnings are regenerated for every payrun, including ones seeded earlier,
+  // so the two employees without bank details are visible from the start.
+  {
+    const { regenerateWarnings } = await import("../src/lib/payroll/warnings")
+    const runs = await db.payrun.findMany({ select: { id: true } })
+    let total = 0
+    for (const r of runs) total += (await regenerateWarnings(r.id)).total
+    console.log(`  payroll warnings: ${total}`)
+  }
+
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10)
   for (const u of USERS) {
     await db.user.upsert({

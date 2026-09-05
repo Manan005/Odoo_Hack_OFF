@@ -8,6 +8,7 @@ import {
 import { db } from "@/lib/db"
 import { fmtPeriod } from "@/lib/dates"
 import { buildContext, computePayslip } from "@/lib/payroll/engine"
+import { blockingWarnings, regenerateWarnings } from "@/lib/payroll/warnings"
 import { PayrunError } from "@/lib/result"
 import type { CreatePayrunInput, PayrunScopeInput } from "@/lib/validation/payroll"
 
@@ -140,7 +141,7 @@ export async function createPayrunWithPayslips(
  */
 export async function computePayrunSlips(
   payrunId: string,
-): Promise<{ computed: number; skipped: number }> {
+): Promise<{ computed: number; skipped: number; warnings: number; blocking: number }> {
   const payrun = await db.payrun.findUnique({
     where: { id: payrunId },
     include: { structure: { include: { rules: true } } },
@@ -289,7 +290,11 @@ export async function computePayrunSlips(
     data: { status: PayrunStatus.COMPUTED, computedAt: new Date() },
   })
 
-  return { computed, skipped }
+  // Regenerate after computing so ZERO_NET sees real figures, and so a fixed
+  // issue disappears rather than lingering from the previous run.
+  const warnings = await regenerateWarnings(payrunId)
+
+  return { computed, skipped, warnings: warnings.total, blocking: warnings.blocking }
 }
 
 export async function validatePayrunRecord(payrunId: string): Promise<void> {
@@ -305,7 +310,17 @@ export async function validatePayrunRecord(payrunId: string): Promise<void> {
     throw new PayrunError("ALREADY_PAID", "This payrun is already paid.")
   }
 
-  // P7 adds the blocking-warning gate here.
+  // AC-M8-4 — a blocking warning stops validation outright.
+  const blocking = await blockingWarnings(payrunId)
+  if (blocking.length > 0) {
+    const first = blocking[0].message
+    const rest = blocking.length > 1 ? ` (+${blocking.length - 1} more)` : ""
+    throw new PayrunError(
+      "BLOCKING_WARNINGS",
+      `Resolve the blocking warnings before validating: ${first}${rest}`,
+    )
+  }
+
   await db.$transaction([
     db.payslip.updateMany({ where: { payrunId }, data: { status: PayslipStatus.VALIDATED } }),
     db.payrun.update({

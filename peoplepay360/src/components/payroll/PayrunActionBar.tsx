@@ -5,19 +5,27 @@ import { BadgeCheck, Banknote, Calculator, Send } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
-import { computePayrun, markPayrunPaid, validatePayrun } from "@/actions/payrun.actions"
+import {
+  computePayrun,
+  markPayrunPaid,
+  sendPayslips,
+  validatePayrun,
+} from "@/actions/payrun.actions"
 import { Button } from "@/components/ui/button"
 
 /**
- * Draft → Compute → Validate → Mark Paid. Each button is disabled unless the
- * run is in the state that allows it; the actions re-check server-side.
+ * Draft → Compute → Validate → Mark Paid → Send. Each button is disabled
+ * unless the run is in the state that allows it; the actions re-check
+ * server-side, and VALIDATE is additionally gated on blocking warnings.
  */
 export function PayrunActionBar({
   payrunId,
   status,
+  blockingCount,
 }: {
   payrunId: string
   status: PayrunStatus
+  blockingCount: number
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -33,31 +41,65 @@ export function PayrunActionBar({
       }
     })
 
+  const isPaid = status === PayrunStatus.PAID
+  const validateBlocked = blockingCount > 0
+
+  const onCompute = () =>
+    startTransition(async () => {
+      const result = await computePayrun(payrunId)
+      if (!result.ok) {
+        toast.error(result.message)
+        return
+      }
+      const { computed, skipped, blocking } = result.data
+      toast.success(
+        `Computed ${computed} payslip${computed === 1 ? "" : "s"}` +
+          (skipped > 0 ? `, skipped ${skipped} without a contract` : "") +
+          (blocking > 0 ? ` — ${blocking} blocking warning${blocking === 1 ? "" : "s"}` : ""),
+      )
+      router.refresh()
+    })
+
+  const onSend = () =>
+    startTransition(async () => {
+      const result = await sendPayslips(payrunId)
+      if (!result.ok) {
+        toast.error(result.message)
+        return
+      }
+      const { sent, skipped, failed } = result.data
+      const parts = [`${sent} sent`]
+      if (skipped.length > 0) parts.push(`${skipped.length} skipped`)
+      if (failed.length > 0) parts.push(`${failed.length} failed`)
+      const detail = [...skipped, ...failed]
+        .map((s) => `${s.employee} — ${s.reason}`)
+        .join("; ")
+      if (failed.length > 0) toast.error(`${parts.join(", ")}. ${detail}`)
+      else if (skipped.length > 0) toast.warning(`${parts.join(", ")}. ${detail}`)
+      else toast.success(`${parts.join(", ")}.`)
+      router.refresh()
+    })
+
   const confirmThen = (message: string, fn: () => void) => () => {
     if (confirm(message)) fn()
   }
 
-  const isPaid = status === PayrunStatus.PAID
-
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        disabled={pending || isPaid}
-        loading={pending}
-        loadingText="Computing…"
-        onClick={() =>
-          run(() => computePayrun(payrunId), "Payslips computed from the salary rules.")
-        }
-      >
+      <Button disabled={pending || isPaid} loading={pending} loadingText="Computing…" onClick={onCompute}>
         <Calculator className="h-4 w-4" />
         COMPUTE
       </Button>
 
       <Button
         variant="outline"
-        disabled={pending || status !== PayrunStatus.COMPUTED}
+        disabled={pending || status !== PayrunStatus.COMPUTED || validateBlocked}
         title={
-          status === PayrunStatus.DRAFT ? "Compute the payrun first" : undefined
+          validateBlocked
+            ? `Resolve ${blockingCount} blocking warning${blockingCount === 1 ? "" : "s"} first`
+            : status === PayrunStatus.DRAFT
+              ? "Compute the payrun first"
+              : undefined
         }
         onClick={() => run(() => validatePayrun(payrunId), "Payrun validated.")}
       >
@@ -80,8 +122,12 @@ export function PayrunActionBar({
 
       <Button
         variant="outline"
-        disabled
-        title="Bulk payslip email arrives in P7"
+        disabled={pending || status !== PayrunStatus.PAID}
+        title={status !== PayrunStatus.PAID ? "Mark the payrun paid first" : undefined}
+        onClick={confirmThen(
+          "Email every payslip in this payrun to its employee?",
+          onSend,
+        )}
       >
         <Send className="h-4 w-4" />
         SEND PAYSLIPS

@@ -1,10 +1,11 @@
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, Printer } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { FormHeader } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { PayslipComputation } from "@/components/payroll/PayslipComputation"
+import { Button } from "@/components/ui/button"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { fmtRange } from "@/lib/dates"
@@ -69,7 +70,28 @@ export default async function PayslipDetailPage({
         backHref="/payroll/payslips"
         title={`${employeeName} — ${payslip.payrun.name}`}
         subtitle={`${payslip.reference} · ${fmtRange(payslip.periodStart, payslip.periodEnd)}`}
-        badge={<StatusBadge status={payslip.status} />}
+        badge={
+          <span className="inline-flex items-center gap-2">
+            <StatusBadge status={payslip.status} />
+            {payslip.sentAt && (
+              <span className="text-xs text-muted-foreground">
+                emailed {payslip.sentAt.toLocaleDateString()}
+              </span>
+            )}
+          </span>
+        }
+        actions={
+          <a
+            href={`/api/payslips/${payslip.id}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="outline">
+              <Printer className="h-4 w-4" />
+              PRINT PAYSLIP
+            </Button>
+          </a>
+        }
       />
 
       {warnings.length > 0 && (

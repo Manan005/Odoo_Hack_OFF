@@ -4,6 +4,7 @@ import { PayrunStatus, Role } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { sendPayrunPayslips, type SendResult } from "@/lib/mail/send-payslips"
 import {
   computePayrunSlips,
   createPayrunWithPayslips,
@@ -51,7 +52,7 @@ export async function createPayrun(raw: unknown): Promise<ActionResult<{ id: str
 
 export async function computePayrun(
   payrunId: string,
-): Promise<ActionResult<{ computed: number; skipped: number }>> {
+): Promise<ActionResult<{ computed: number; skipped: number; warnings: number; blocking: number }>> {
   try {
     await requireRole(Role.HR_PAYROLL_USER)
     const result = await computePayrunSlips(payrunId)
@@ -86,6 +87,20 @@ export async function markPayrunPaid(payrunId: string): Promise<ActionResult<voi
     return ok(undefined)
   } catch (error) {
     return toActionResult(error, "markPayrunPaid")
+  }
+}
+
+/** Bulk-email every payslip in the run as a PDF attachment. */
+export async function sendPayslips(payrunId: string): Promise<ActionResult<SendResult>> {
+  try {
+    await requireRole(Role.HR_PAYROLL_USER)
+    const result = await sendPayrunPayslips(payrunId)
+
+    revalidatePath(`/payroll/payruns/${payrunId}`)
+    revalidatePath("/payroll/payslips")
+    return ok(result)
+  } catch (error) {
+    return toActionResult(error, "sendPayslips")
   }
 }
 

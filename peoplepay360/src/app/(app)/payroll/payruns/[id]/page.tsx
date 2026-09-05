@@ -8,6 +8,7 @@ import { Forbidden } from "@/components/shared/Forbidden"
 import { FormHeader } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { PayrunActionBar } from "@/components/payroll/PayrunActionBar"
+import { WarningsPanel } from "@/components/payroll/WarningsPanel"
 import { pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { fmtRange } from "@/lib/dates"
@@ -71,6 +72,15 @@ export default async function PayrunDetailPage({
     where: { id },
     include: {
       structure: { select: { id: true, name: true } },
+      warnings: {
+        select: {
+          id: true,
+          code: true,
+          severity: true,
+          message: true,
+          payslipId: true,
+        },
+      },
       payslips: {
         select: {
           id: true,
@@ -79,6 +89,7 @@ export default async function PayrunDetailPage({
           basic: true,
           gross: true,
           net: true,
+          sentAt: true,
           contractId: true,
           employee: {
             select: { firstName: true, lastName: true, bankAccountNumber: true },
@@ -91,9 +102,8 @@ export default async function PayrunDetailPage({
   if (!payrun) notFound()
 
   const totalNet = payrun.payslips.reduce((sum, p) => sum + Number(p.net), 0)
-  const issues = payrun.payslips.filter(
-    (p) => !p.contractId || !p.employee.bankAccountNumber,
-  ).length
+  const blockingCount = payrun.warnings.filter((w) => w.severity === "BLOCKING").length
+  const issues = payrun.warnings.length
 
   return (
     <>
@@ -113,8 +123,16 @@ export default async function PayrunDetailPage({
             )}
           </span>
         }
-        actions={<PayrunActionBar payrunId={payrun.id} status={payrun.status} />}
+        actions={
+          <PayrunActionBar
+            payrunId={payrun.id}
+            status={payrun.status}
+            blockingCount={blockingCount}
+          />
+        }
       />
+
+      <WarningsPanel warnings={payrun.warnings} />
 
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-5 py-3 text-sm shadow-card">
         <span>
