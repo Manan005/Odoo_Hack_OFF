@@ -111,6 +111,11 @@ npx tsx prisma/check-dashboard.ts         # live aggregates respond to filters
 npx tsx prisma/check-payslip-delivery.ts  # PDF + email (needs the dev server up)
 ```
 
+`check-payslip-delivery.ts` also inflates the PDF's `/ToUnicode` maps to prove
+the `₹` and `−` glyphs really made it into the file — the built-in PDF fonts
+cannot encode either, so the payslip embeds Noto Sans from `public/fonts/`
+(SIL Open Font License, see `public/fonts/OFL.txt`).
+
 ### The three claims that matter
 
 **Salary rules drive the payslip.** Changing HRA from 20% to 25% moves the line

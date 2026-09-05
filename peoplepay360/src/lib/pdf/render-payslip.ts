@@ -2,6 +2,7 @@ import { createElement, type ReactElement } from "react"
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer"
 import { db } from "@/lib/db"
 import { fmtRange } from "@/lib/dates"
+import { registerPdfFonts } from "@/lib/pdf/fonts"
 import { PayslipDocument, toPdfData } from "@/lib/pdf/payslip-document"
 
 /** Loads a payslip and renders it to a PDF buffer. Shared by the route and the mailer. */
@@ -11,6 +12,8 @@ export async function renderPayslipPdf(payslipId: string): Promise<{
   employeeName: string
   workEmail: string | null
 } | null> {
+  registerPdfFonts()
+
   const payslip = await db.payslip.findUnique({
     where: { id: payslipId },
     include: {

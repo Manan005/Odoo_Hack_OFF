@@ -1,5 +1,6 @@
 import { RuleCategory } from "@prisma/client"
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
+import { PDF_FONT } from "@/lib/pdf/fonts"
 import { amountInWords, formatINR } from "@/lib/money"
 
 export interface PayslipPdfData {
@@ -34,7 +35,7 @@ export interface PayslipPdfData {
 }
 
 const s = StyleSheet.create({
-  page: { padding: 36, fontSize: 9, color: "#1e293b", fontFamily: "Helvetica" },
+  page: { padding: 36, fontSize: 9, color: "#1e293b", fontFamily: PDF_FONT },
 
   header: {
     flexDirection: "row",
@@ -44,15 +45,15 @@ const s = StyleSheet.create({
     paddingBottom: 10,
     marginBottom: 14,
   },
-  company: { fontSize: 15, fontFamily: "Helvetica-Bold", color: "#4f46e5" },
+  company: { fontSize: 15, fontWeight: 700, color: "#4f46e5" },
   companyMeta: { fontSize: 8, color: "#64748b", marginTop: 2 },
-  docTitle: { fontSize: 12, fontFamily: "Helvetica-Bold", textAlign: "right" },
+  docTitle: { fontSize: 12, fontWeight: 700, textAlign: "right" },
   docMeta: { fontSize: 8, color: "#64748b", textAlign: "right", marginTop: 2 },
 
   section: { marginBottom: 14 },
   sectionTitle: {
     fontSize: 9,
-    fontFamily: "Helvetica-Bold",
+    fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: 0.6,
     color: "#64748b",
@@ -91,7 +92,7 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#cbd5e1",
   },
-  subtotalText: { fontSize: 9, fontFamily: "Helvetica-Bold" },
+  subtotalText: { fontSize: 9, fontWeight: 700 },
 
   net: {
     flexDirection: "row",
@@ -103,9 +104,12 @@ const s = StyleSheet.create({
     padding: 9,
     marginTop: 12,
   },
-  netLabel: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#4f46e5" },
-  netAmount: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#4f46e5" },
-  words: { fontSize: 8, color: "#475569", marginTop: 6, fontStyle: "italic" },
+  netLabel: { fontSize: 11, fontWeight: 700, color: "#4f46e5" },
+  netAmount: { fontSize: 13, fontWeight: 700, color: "#4f46e5" },
+  // No italic: only the regular and bold Noto Sans faces are registered, and
+  // @react-pdf throws rather than faking an oblique. The smaller, muted size
+  // already sets this line apart.
+  words: { fontSize: 8, color: "#475569", marginTop: 6 },
 
   footer: {
     position: "absolute",

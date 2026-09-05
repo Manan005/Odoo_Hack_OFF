@@ -1,4 +1,4 @@
-import { AlertTriangle, Printer } from "lucide-react"
+import { AlertTriangle, Eye, Printer } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Forbidden } from "@/components/shared/Forbidden"
@@ -81,16 +81,22 @@ export default async function PayslipDetailPage({
           </span>
         }
         actions={
-          <a
-            href={`/api/payslips/${payslip.id}/pdf`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline">
-              <Printer className="h-4 w-4" />
-              PRINT PAYSLIP
-            </Button>
-          </a>
+          <span className="flex items-center gap-2">
+            {/* The route sends `attachment` by default, so this downloads
+                without navigating; `?view=1` opens the browser's PDF viewer. */}
+            <a href={`/api/payslips/${payslip.id}/pdf?view=1`} target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost">
+                <Eye className="h-4 w-4" />
+                PREVIEW
+              </Button>
+            </a>
+            <a href={`/api/payslips/${payslip.id}/pdf`} download>
+              <Button variant="outline">
+                <Printer className="h-4 w-4" />
+                DOWNLOAD PAYSLIP
+              </Button>
+            </a>
+          </span>
         }
       />
 

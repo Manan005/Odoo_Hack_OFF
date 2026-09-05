@@ -77,4 +77,13 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+
+  /*
+   * A modal <dialog> is centred by the UA stylesheet with `margin: auto`
+   * against `inset: 0`. Tailwind's preflight resets `margin` to 0 on every
+   * element, so without this every dialog opens pinned to the top-left.
+   */
+  dialog {
+    margin: auto;
+  }
 }
