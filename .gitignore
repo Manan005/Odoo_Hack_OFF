@@ -1,0 +1,28 @@
+# Ignored folders requested by user
+docs/
+graphify-out/
+
+# Claude config
+.claude/
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Next.js build output
+.next/
+**/.next/
+out/
+build/
+
+# Environment files
+.env
+.env*.local
+peoplepay360/.env
+
+# Logs and cache
+*.log
+npm-debug.log*
+yarn-debug.log*
+.DS_Store
+*.tsbuildinfo
