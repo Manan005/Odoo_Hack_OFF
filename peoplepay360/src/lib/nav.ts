@@ -52,6 +52,7 @@ const NAV: NavItem[] = [
       { label: "Dashboard", href: "/payroll/dashboard", min: Role.HR_PAYROLL_USER },
       { label: "Payruns", href: "/payroll/payruns", min: Role.HR_PAYROLL_USER },
       { label: "Payslips", href: "/payroll/payslips", min: Role.HR_PAYROLL_USER },
+      { label: "Simulator", href: "/payroll/simulator", min: Role.HR_PAYROLL_USER },
       { label: "Structures", href: "/payroll/structures", min: Role.HR_PAYROLL_USER },
       { label: "Rules", href: "/payroll/rules", min: Role.HR_PAYROLL_USER },
     ],

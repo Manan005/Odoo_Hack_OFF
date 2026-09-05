@@ -94,6 +94,7 @@ async function main() {
     `/payroll/payruns/${ids.payrun}`,
     "/payroll/payslips",
     `/payroll/payslips/${ids.payslip}`,
+    "/payroll/simulator",
     "/payroll/structures",
     "/payroll/structures/new",
     `/payroll/structures/${ids.structure}`,

@@ -74,6 +74,25 @@ Sign in as `nisha@oxp.com`.
 **The point to make:** open `Payroll → Rules → House Rent Allowance`, change 20%
 to 25%, recompute the payrun, and the payslip changes. No code was touched.
 
+## Salary simulator — beyond the brief
+
+`Payroll → Simulator` answers "what would this cost?" without touching payroll.
+
+It opens on a scenario that has a real counterpart, and every line reads
+**no change** — because with no overrides it runs the same `buildContext` +
+`computePayslip` a payrun runs, and reproduces the stored payslip to the paisa.
+That is the point: once the baseline is provably identical, a number that
+*does* move can be trusted.
+
+Then move something — raise the wage, add overtime hours, swap the salary
+structure — and the payslip recomputes line by line against the real one, with
+a summary of which facts you changed and the derived rates (`hourlyRate`,
+`perDayRate`) recomputed to match.
+
+Nothing is written. `check-simulator.ts` fingerprints every payslip, line,
+payrun, contract and rule before and after seven simulations and asserts the
+database is byte-identical.
+
 ## Demo scenario B — allocation to request to balance
 
 Sign in as `sara@oxp.com`.
@@ -108,6 +127,7 @@ npx tsx prisma/check-engine.ts            # rules genuinely drive payslips
 npx tsx prisma/check-scenario-a.ts        # wizard to compute to validate to paid
 npx tsx prisma/check-warnings.ts          # 7 warning codes, blocking gate
 npx tsx prisma/check-dashboard.ts         # live aggregates respond to filters
+npx tsx prisma/check-simulator.ts         # what-if baseline fidelity, and that it writes nothing
 npx tsx prisma/check-payslip-delivery.ts  # PDF + email (needs the dev server up)
 ```
 
