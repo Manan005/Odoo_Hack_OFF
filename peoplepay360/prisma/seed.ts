@@ -6,6 +6,7 @@
  * Later phases extend this file (contracts, attendance, time off, payroll).
  */
 import {
+  AttendanceStatus,
   CalendarType,
   ContractStatus,
   EmployeeType,
@@ -384,6 +385,165 @@ async function main() {
   })
   if (removed.count > 0) console.log(`  removed ${removed.count} stale contract(s)`)
   console.log(`  contracts: ${expectedRefs.length}`)
+
+  // ────────────────────────── Attendance ──────────────────────────
+  // Apr–Sep 2026 across every employee, carrying the exception mix the P8
+  // dashboard reports on: missing check-outs, manual edits, late, absent and
+  // overtime. Deterministic — a seeded PRNG keeps re-runs identical.
+  let rngState = 20260905
+  const rand = () => {
+    // Mulberry32 — small, deterministic, good enough for demo data.
+    rngState = (rngState + 0x6d2b79f5) | 0
+    let t = rngState
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+
+  const existingAttendance = await db.attendance.count()
+  if (existingAttendance > 0) {
+    console.log(`  attendance: ${existingAttendance} rows already present — skipping`)
+  } else {
+    const scheduleLines = await db.scheduleLine.findMany({
+      select: { scheduleId: true, day: true, startTime: true, endTime: true, hours: true },
+    })
+    const linesBySchedule = new Map<string, typeof scheduleLines>()
+    for (const l of scheduleLines) {
+      linesBySchedule.set(l.scheduleId, [...(linesBySchedule.get(l.scheduleId) ?? []), l])
+    }
+
+    const WEEKDAY_BY_INDEX: Weekday[] = [
+      Weekday.SUNDAY,
+      Weekday.MONDAY,
+      Weekday.TUESDAY,
+      Weekday.WEDNESDAY,
+      Weekday.THURSDAY,
+      Weekday.FRIDAY,
+      Weekday.SATURDAY,
+    ]
+
+    const seededEmployees = await db.employee.findMany({
+      select: { id: true, workingScheduleId: true },
+    })
+
+    type AttendanceRow = {
+      employeeId: string
+      checkIn: Date
+      checkOut: Date | null
+      workedHours: number
+      overtime: number
+      status: AttendanceStatus
+      manuallyEdited: boolean
+      notes: string | null
+    }
+    const rows: AttendanceRow[] = []
+
+    // Apr 1 2026 → Sep 30 2026.
+    const from = utc(2026, 3, 1)
+    const to = utc(2026, 8, 30)
+
+    let missingCheckOuts = 0
+    let manualEdits = 0
+
+    for (const emp of seededEmployees) {
+      const lines = emp.workingScheduleId
+        ? (linesBySchedule.get(emp.workingScheduleId) ?? [])
+        : []
+      if (lines.length === 0) continue
+
+      for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+        const line = lines.find((l) => l.day === WEEKDAY_BY_INDEX[d.getUTCDay()])
+        if (!line) continue
+
+        const roll = rand()
+        const [sh, sm] = line.startTime.split(":").map(Number)
+        const [eh, em] = line.endTime.split(":").map(Number)
+        // Compare like with like: workedHours is a raw clock span, so the
+        // baseline is the scheduled span (break included), not the net hours.
+        const expectedSpan = Number((eh + em / 60 - (sh + sm / 60)).toFixed(2))
+
+        // ~4% absent — no clock values at all.
+        if (roll < 0.04) {
+          rows.push({
+            employeeId: emp.id,
+            checkIn: new Date(
+              Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), sh, sm),
+            ),
+            checkOut: null,
+            workedHours: 0,
+            overtime: 0,
+            status: AttendanceStatus.ABSENT,
+            manuallyEdited: false,
+            notes: null,
+          })
+          continue
+        }
+
+        // ~8% late — arrive 16–75 minutes after the scheduled start.
+        const isLate = roll < 0.12
+        const lateBy = isLate ? 16 + Math.floor(rand() * 60) : Math.floor(rand() * 10)
+        const checkIn = new Date(
+          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), sh, sm + lateBy),
+        )
+
+        // Most days land near the scheduled span; ~12% run into overtime.
+        const overtimeToday = rand() < 0.12 ? 0.5 + rand() * 2 : 0
+        const workedHours = Number((expectedSpan + overtimeToday - rand() * 0.2).toFixed(2))
+        // checkOut is derived from workedHours so the stored value and the
+        // clock span always agree — the gate script asserts exactly this.
+        const checkOut = new Date(checkIn.getTime() + workedHours * 3_600_000)
+
+        rows.push({
+          employeeId: emp.id,
+          checkIn,
+          checkOut,
+          workedHours,
+          overtime: Number(Math.max(0, workedHours - expectedSpan).toFixed(2)),
+          status: isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
+          manuallyEdited: false,
+          notes: null,
+        })
+      }
+    }
+
+    // Stamp the two exception classes on an exact, evenly spread set of rows
+    // rather than leaving their counts to chance — the dashboard reports these
+    // numbers, so the demo should show a known quantity.
+    const TARGET_MISSING_CHECKOUTS = 5
+    const TARGET_MANUAL_EDITS = 7
+    const present = rows
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => r.status !== AttendanceStatus.ABSENT && r.checkOut !== null)
+
+    const stride = Math.floor(present.length / (TARGET_MISSING_CHECKOUTS + TARGET_MANUAL_EDITS + 2))
+    let cursor = stride
+    for (let n = 0; n < TARGET_MISSING_CHECKOUTS; n++, cursor += stride) {
+      const row = present[cursor]?.r
+      if (!row) break
+      row.checkOut = null
+      row.workedHours = 0
+      row.overtime = 0
+      row.notes = "Missing check-out."
+      missingCheckOuts++
+    }
+    for (let n = 0; n < TARGET_MANUAL_EDITS; n++, cursor += stride) {
+      const row = present[cursor]?.r
+      if (!row) break
+      row.manuallyEdited = true
+      row.notes = "Corrected by HR after a device sync failure."
+      manualEdits++
+    }
+
+    // createMany in batches — a single 2,600-row insert is fine but batching
+    // keeps memory flat if the range is widened later.
+    const BATCH = 500
+    for (let i = 0; i < rows.length; i += BATCH) {
+      await db.attendance.createMany({ data: rows.slice(i, i + BATCH) })
+    }
+    console.log(
+      `  attendance: ${rows.length} rows (${missingCheckOuts} missing check-outs, ${manualEdits} manual edits)`,
+    )
+  }
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10)
   for (const u of USERS) {
