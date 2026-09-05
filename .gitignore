@@ -1,6 +1,7 @@
 # Ignored folders requested by user
 docs/
 graphify-out/
+Dashboard inspiration/
 
 # Claude config
 .claude/

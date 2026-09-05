@@ -9,12 +9,15 @@ import {
   ApprovalMode,
   AttendanceStatus,
   CalendarType,
+  ComputationType,
   ContractStatus,
   EmployeeType,
   Gender,
+  PercentageBase,
   PrismaClient,
   RequestStatus,
   Role,
+  RuleCategory,
   TimeOffUnit,
   Weekday,
 } from "@prisma/client"
@@ -752,6 +755,198 @@ async function main() {
       }
     }
     console.log(`  time off requests: ${REQUESTS.length} (${approvedCount} consuming balance)`)
+  }
+
+  // ───────────────── Salary structures & rules ─────────────────
+  // The reference set from PRD §M7.2. Sequence is the contract: GROSS runs
+  // after every allowance, NET after every deduction, so both are plain
+  // formulas over codes computed earlier.
+  type RuleSpec = {
+    name: string
+    code: string
+    category: RuleCategory
+    sequence: number
+    computationType: ComputationType
+    amount?: string
+    percentage?: string
+    percentageBase?: PercentageBase
+    baseRuleCode?: string
+    formula?: string
+    condition?: string
+  }
+
+  const REGULAR_RULES: RuleSpec[] = [
+    { name: "Basic Salary", code: "BASIC", category: RuleCategory.BASIC, sequence: 1, computationType: ComputationType.PERCENTAGE, percentage: "50", percentageBase: PercentageBase.CONTRACT_WAGE },
+    { name: "House Rent Allowance", code: "HRA", category: RuleCategory.ALLOWANCE, sequence: 10, computationType: ComputationType.PERCENTAGE, percentage: "20", percentageBase: PercentageBase.BASIC },
+    { name: "Standard Allowance", code: "STD", category: RuleCategory.ALLOWANCE, sequence: 20, computationType: ComputationType.FIXED, amount: "3000" },
+    { name: "Meal Allowance", code: "MEAL", category: RuleCategory.ALLOWANCE, sequence: 25, computationType: ComputationType.FIXED, amount: "2000" },
+    { name: "Performance Bonus", code: "BONUS", category: RuleCategory.ALLOWANCE, sequence: 30, computationType: ComputationType.FORMULA, formula: "if(workedDays >= scheduledDays, BASIC * 0.10, 0)" },
+    { name: "Overtime Pay", code: "OT", category: RuleCategory.ALLOWANCE, sequence: 40, computationType: ComputationType.FORMULA, formula: "round(overtimeHours * hourlyRate * 1.5, 2)" },
+    { name: "Gross Salary", code: "GROSS", category: RuleCategory.GROSS, sequence: 50, computationType: ComputationType.FORMULA, formula: "BASIC + HRA + STD + MEAL + BONUS + OT" },
+    { name: "Provident Fund", code: "PF", category: RuleCategory.DEDUCTION, sequence: 60, computationType: ComputationType.PERCENTAGE, percentage: "12", percentageBase: PercentageBase.BASIC },
+    { name: "Professional Tax", code: "PT", category: RuleCategory.DEDUCTION, sequence: 65, computationType: ComputationType.FIXED, amount: "200" },
+    { name: "Unpaid Leave Deduction", code: "LWP", category: RuleCategory.DEDUCTION, sequence: 70, computationType: ComputationType.FORMULA, formula: "round(unpaidLeaveDays * perDayRate, 2)" },
+    { name: "Income Tax (TDS)", code: "TDS", category: RuleCategory.DEDUCTION, sequence: 80, computationType: ComputationType.PERCENTAGE, percentage: "10", percentageBase: PercentageBase.GROSS },
+    { name: "Net Salary", code: "NET", category: RuleCategory.NET, sequence: 100, computationType: ComputationType.FORMULA, formula: "GROSS - PF - PT - LWP - TDS" },
+  ]
+
+  const INTERN_RULES: RuleSpec[] = [
+    { name: "Stipend", code: "BASIC", category: RuleCategory.BASIC, sequence: 1, computationType: ComputationType.PERCENTAGE, percentage: "100", percentageBase: PercentageBase.CONTRACT_WAGE },
+    { name: "Travel Allowance", code: "TRAVEL", category: RuleCategory.ALLOWANCE, sequence: 10, computationType: ComputationType.FIXED, amount: "1500" },
+    { name: "Meal Allowance", code: "MEAL", category: RuleCategory.ALLOWANCE, sequence: 20, computationType: ComputationType.FIXED, amount: "1000" },
+    { name: "Gross Salary", code: "GROSS", category: RuleCategory.GROSS, sequence: 50, computationType: ComputationType.FORMULA, formula: "BASIC + TRAVEL + MEAL" },
+    { name: "Unpaid Leave Deduction", code: "LWP", category: RuleCategory.DEDUCTION, sequence: 70, computationType: ComputationType.FORMULA, formula: "round(unpaidLeaveDays * perDayRate, 2)" },
+    { name: "Professional Tax", code: "PT", category: RuleCategory.DEDUCTION, sequence: 75, computationType: ComputationType.FIXED, amount: "200" },
+    { name: "Net Salary", code: "NET", category: RuleCategory.NET, sequence: 100, computationType: ComputationType.FORMULA, formula: "GROSS - LWP - PT" },
+  ]
+
+  const CONTRACTOR_RULES: RuleSpec[] = [
+    { name: "Consulting Fee", code: "BASIC", category: RuleCategory.BASIC, sequence: 1, computationType: ComputationType.PERCENTAGE, percentage: "100", percentageBase: PercentageBase.CONTRACT_WAGE },
+    { name: "Attendance Adjustment", code: "ATT", category: RuleCategory.ALLOWANCE, sequence: 20, computationType: ComputationType.FORMULA, formula: "round(0 - BASIC * (scheduledDays - workedDays) / scheduledDays, 2)", condition: "workedDays < scheduledDays" },
+    { name: "Gross Salary", code: "GROSS", category: RuleCategory.GROSS, sequence: 50, computationType: ComputationType.FORMULA, formula: "BASIC + ATT" },
+    { name: "TDS (Contractor)", code: "TDS", category: RuleCategory.DEDUCTION, sequence: 80, computationType: ComputationType.PERCENTAGE, percentage: "10", percentageBase: PercentageBase.GROSS },
+    { name: "Net Payable", code: "NET", category: RuleCategory.NET, sequence: 100, computationType: ComputationType.FORMULA, formula: "GROSS - TDS" },
+  ]
+
+  const STRUCTURES: Array<{ name: string; note: string; rules: RuleSpec[] }> = [
+    { name: "Regular Salary", note: "Standard full-time structure.", rules: REGULAR_RULES },
+    { name: "Intern Salary", note: "Stipend-based, no PF.", rules: INTERN_RULES },
+    { name: "Contractor", note: "Fee-based with attendance adjustment.", rules: CONTRACTOR_RULES },
+  ]
+
+  const structureIds = new Map<string, string>()
+  for (const s of STRUCTURES) {
+    const structure = await db.salaryStructure.upsert({
+      where: { companyId_name: { companyId: company.id, name: s.name } },
+      update: { note: s.note, active: true },
+      create: { name: s.name, note: s.note, active: true, companyId: company.id },
+      select: { id: true },
+    })
+    structureIds.set(s.name, structure.id)
+
+    for (const r of s.rules) {
+      await db.salaryRule.upsert({
+        where: { structureId_code: { structureId: structure.id, code: r.code } },
+        update: {
+          name: r.name,
+          category: r.category,
+          sequence: r.sequence,
+          computationType: r.computationType,
+          amount: r.amount ?? null,
+          percentage: r.percentage ?? null,
+          percentageBase: r.percentageBase ?? null,
+          baseRuleCode: r.baseRuleCode ?? null,
+          formula: r.formula ?? null,
+          condition: r.condition ?? null,
+          quantity: 1,
+          active: true,
+        },
+        create: {
+          structureId: structure.id,
+          name: r.name,
+          code: r.code,
+          category: r.category,
+          sequence: r.sequence,
+          computationType: r.computationType,
+          amount: r.amount ?? null,
+          percentage: r.percentage ?? null,
+          percentageBase: r.percentageBase ?? null,
+          baseRuleCode: r.baseRuleCode ?? null,
+          formula: r.formula ?? null,
+          condition: r.condition ?? null,
+          quantity: 1,
+          active: true,
+        },
+      })
+    }
+  }
+  const ruleTotal = STRUCTURES.reduce((n, s) => n + s.rules.length, 0)
+  console.log(`  salary structures: ${structureIds.size} (${ruleTotal} rules)`)
+
+  // Point every contract at the structure matching its employee type, so a
+  // payrun has something to compute against.
+  const regularId = structureIds.get("Regular Salary")!
+  const internId = structureIds.get("Intern Salary")!
+  const contractorId = structureIds.get("Contractor")!
+  for (const spec of EMPLOYEES) {
+    const structureId =
+      spec.type === EmployeeType.INTERN
+        ? internId
+        : spec.type === EmployeeType.CONTRACT || spec.type === EmployeeType.FREELANCE
+          ? contractorId
+          : regularId
+    await db.contract.updateMany({
+      where: { employeeId: employeeIds.get(spec.code)! },
+      data: { salaryStructureId: structureId },
+    })
+  }
+
+  // ───────────────── Historical payruns (Apr–Aug 2026) ─────────────────
+  // Paid runs so the dashboard trend has history. September is deliberately
+  // left unmade — the demo creates it live through the wizard.
+  const existingPayruns = await db.payrun.count()
+  if (existingPayruns > 0) {
+    console.log(`  payruns: ${existingPayruns} already present — skipping`)
+  } else {
+    const { computePayrunSlips, createPayrunWithPayslips, findEligibleEmployees } = await import(
+      "../src/lib/payroll/payrun-service"
+    )
+
+    const MONTHS: Array<[number, number, string]> = [
+      [2026, 3, "April 2026"],
+      [2026, 4, "May 2026"],
+      [2026, 5, "June 2026"],
+      [2026, 6, "July 2026"],
+      [2026, 7, "August 2026"],
+    ]
+
+    let slipTotal = 0
+    for (const [year, month, name] of MONTHS) {
+      const periodStart = utc(year, month, 1)
+      const periodEnd = utc(year, month + 1, 0)
+
+      const scope = {
+        name,
+        structureId: structureIds.get("Regular Salary")!,
+        periodStart,
+        periodEnd,
+        employeeTypes: [],
+        departmentId: null,
+      }
+
+      const eligible = await findEligibleEmployees(company.id, scope)
+      if (eligible.length === 0) continue
+
+      const payrun = await createPayrunWithPayslips(company.id, {
+        ...scope,
+        employeeIds: eligible.map((e) => e.id),
+      })
+      const { computed } = await computePayrunSlips(payrun.id)
+
+      // Straight to PAID — these are closed historical periods.
+      await db.$transaction([
+        db.payslip.updateMany({
+          where: { payrunId: payrun.id },
+          data: { status: "PAID" },
+        }),
+        db.payrun.update({
+          where: { id: payrun.id },
+          data: {
+            status: "PAID",
+            computedAt: periodEnd,
+            validatedAt: periodEnd,
+            paidAt: periodEnd,
+          },
+        }),
+      ])
+      slipTotal += computed
+      console.log(`    ${name}: ${computed} payslips`)
+    }
+
+    const totalNet = await db.payslip.aggregate({ _sum: { net: true } })
+    console.log(
+      `  payruns: ${MONTHS.length} paid (${slipTotal} payslips, net ${totalNet._sum.net}) — Sep 2026 left for the live demo`,
+    )
   }
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10)
