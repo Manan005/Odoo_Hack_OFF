@@ -1,16 +1,18 @@
 import { AttendanceStatus } from "@prisma/client"
 import { Clock, Pencil } from "lucide-react"
 import { CheckInOutWidget } from "@/components/attendance/CheckInOutWidget"
-import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
+import { Column, DataTable } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { FilterChip, ListToolbar } from "@/components/shared/ListToolbar"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
+import { Pagination } from "@/components/shared/Pagination"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { fmtDateCompact, fmtTime } from "@/lib/dates"
 import { formatHours } from "@/lib/money"
+import { pageInfo, pageSlice, parsePage } from "@/lib/paging"
 
 export const metadata = { title: "Attendance — PeoplePay360" }
 
@@ -81,13 +83,19 @@ const PAGE_SIZE = 50
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; employeeId?: string; status?: string; today?: string }>
+  searchParams: Promise<{
+    q?: string
+    employeeId?: string
+    status?: string
+    today?: string
+    page?: string
+  }>
 }) {
   const viewer = await pageUser()
   if (!viewer) return <Forbidden />
 
   const isHr = rankOf(viewer.roles) >= ROLE_RANK.HR_MANAGER
-  const { q, employeeId, status, today } = await searchParams
+  const { q, employeeId, status, today, page } = await searchParams
 
   // EMPLOYEE rank sees only their own rows — narrowed in the where clause.
   const scopedEmployeeId = isHr ? employeeId : (viewer.employeeId ?? "__none__")
@@ -111,7 +119,13 @@ export default async function AttendancePage({
       : {}),
   }
 
-  const [rows, total, filterEmployee, myToday] = await Promise.all([
+  // The count comes first so an out-of-range `?page=` can be clamped to the
+  // last real page rather than rendering an empty table, which reads as
+  // "no data" when it actually means "no such page".
+  const total = await db.attendance.count({ where })
+  const info = pageInfo(parsePage(page), PAGE_SIZE, total)
+
+  const [rows, filterEmployee, myToday] = await Promise.all([
     db.attendance.findMany({
       where,
       select: {
@@ -124,10 +138,12 @@ export default async function AttendancePage({
         manuallyEdited: true,
         employee: { select: { firstName: true, lastName: true } },
       },
-      orderBy: { checkIn: "desc" },
-      take: PAGE_SIZE,
+      // A stable tiebreaker — several rows share a checkIn timestamp, and
+      // without it Postgres may order them differently per page, so a row can
+      // appear twice or never appear at all.
+      orderBy: [{ checkIn: "desc" }, { id: "desc" }],
+      ...pageSlice(info),
     }),
-    db.attendance.count({ where }),
     employeeId && isHr
       ? db.employee.findUnique({
           where: { id: employeeId },
@@ -189,7 +205,7 @@ export default async function AttendancePage({
             description="Check in from the panel above, or record an entry manually."
           />
         }
-        footer={<RowCount shown={rows.length} total={total} />}
+        footer={<Pagination info={info} />}
       />
     </>
   )

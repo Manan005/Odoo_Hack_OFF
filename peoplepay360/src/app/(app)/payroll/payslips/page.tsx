@@ -1,15 +1,17 @@
 import { PayslipStatus } from "@prisma/client"
 import { AlertTriangle, Receipt } from "lucide-react"
-import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
+import { Column, DataTable } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { FilterChip, ListToolbar } from "@/components/shared/ListToolbar"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
+import { Pagination } from "@/components/shared/Pagination"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { fmtRange } from "@/lib/dates"
 import { formatMoneyCompact } from "@/lib/money"
+import { pageInfo, pageSlice, parsePage } from "@/lib/paging"
 
 export const metadata = { title: "Payslips — PeoplePay360" }
 
@@ -55,35 +57,42 @@ const columns: Column<Row>[] = [
   { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
 ]
 
+const PAGE_SIZE = 50
+
 export default async function PayslipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; payrunId?: string; employeeId?: string }>
+  searchParams: Promise<{ q?: string; payrunId?: string; employeeId?: string; page?: string }>
 }) {
   const viewer = await pageUser()
   if (!viewer) return <Forbidden />
 
   const isPayroll = rankOf(viewer.roles) >= ROLE_RANK.HR_PAYROLL_USER
-  const { q, payrunId, employeeId } = await searchParams
+  const { q, payrunId, employeeId, page } = await searchParams
 
   // An employee may see their own payslips; anything wider needs payroll rank.
   const scopedEmployeeId = isPayroll ? employeeId : (viewer.employeeId ?? "__none__")
 
+  const where = {
+    ...(scopedEmployeeId ? { employeeId: scopedEmployeeId } : {}),
+    ...(payrunId ? { payrunId } : {}),
+    ...(q
+      ? {
+          OR: [
+            { employee: { firstName: { contains: q, mode: "insensitive" as const } } },
+            { employee: { lastName: { contains: q, mode: "insensitive" as const } } },
+            { reference: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  }
+
+  const total = await db.payslip.count({ where })
+  const info = pageInfo(parsePage(page), PAGE_SIZE, total)
+
   const [payslips, filterPayrun] = await Promise.all([
     db.payslip.findMany({
-      where: {
-        ...(scopedEmployeeId ? { employeeId: scopedEmployeeId } : {}),
-        ...(payrunId ? { payrunId } : {}),
-        ...(q
-          ? {
-              OR: [
-                { employee: { firstName: { contains: q, mode: "insensitive" as const } } },
-                { employee: { lastName: { contains: q, mode: "insensitive" as const } } },
-                { reference: { contains: q, mode: "insensitive" as const } },
-              ],
-            }
-          : {}),
-      },
+      where,
       select: {
         id: true,
         periodStart: true,
@@ -96,8 +105,10 @@ export default async function PayslipsPage({
         employee: { select: { firstName: true, lastName: true, bankAccountNumber: true } },
         payrun: { select: { name: true, structure: { select: { name: true } } } },
       },
-      orderBy: [{ periodStart: "desc" }, { employee: { firstName: "asc" } }],
-      take: 200,
+      // `reference` is unique, so it breaks ties deterministically — without
+      // it, rows sharing a period and first name could shuffle between pages.
+      orderBy: [{ periodStart: "desc" }, { employee: { firstName: "asc" } }, { reference: "asc" }],
+      ...pageSlice(info),
     }),
     payrunId
       ? db.payrun.findUnique({ where: { id: payrunId }, select: { name: true } })
@@ -132,7 +143,7 @@ export default async function PayslipsPage({
             description="Payslips are produced by computing a payrun."
           />
         }
-        footer={<RowCount shown={payslips.length} total={payslips.length} />}
+        footer={<Pagination info={info} />}
       />
     </>
   )
