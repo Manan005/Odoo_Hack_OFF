@@ -10,6 +10,7 @@ import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Field, Input, Select, Textarea } from "@/components/ui/field"
 import { formatDuration } from "@/lib/money"
+import { cn } from "@/lib/utils"
 
 export interface RequestFormValues {
   id?: string
@@ -25,14 +26,20 @@ export interface TypeOption {
   name: string
   unit: TimeOffUnit
   requiresAllocation: boolean
-  /** Remaining balance for the chosen employee, when the type needs one. */
-  remaining: number | null
 }
+
+/**
+ * remaining[employeeId][typeId]. A missing entry means the employee has no
+ * approved allocation of that type at all, which the form reports differently
+ * from an allocation that exists with nothing left on it.
+ */
+export type RemainingByEmployee = Record<string, Record<string, number>>
 
 export function RequestForm({
   initial,
   employees,
   types,
+  remaining,
   duration,
   allocationLabel,
   readOnly = false,
@@ -40,6 +47,8 @@ export function RequestForm({
   initial: RequestFormValues
   employees: Array<{ id: string; name: string }>
   types: TypeOption[]
+  /** Balances for every selectable employee, so switching employee is instant. */
+  remaining: RemainingByEmployee
   duration?: string
   allocationLabel?: string | null
   readOnly?: boolean
@@ -54,6 +63,13 @@ export function RequestForm({
     setV((prev) => ({ ...prev, [k]: value }))
 
   const selected = types.find((t) => t.id === v.typeId)
+
+  // Read against the employee currently chosen in the form — not the one the
+  // page was rendered for. null = no approved allocation of that type.
+  const remainingFor = (typeId: string): number | null =>
+    remaining[v.employeeId]?.[typeId] ?? null
+
+  const selectedRemaining = selected ? remainingFor(selected.id) : null
 
   const submit = () => {
     setErrors({})
@@ -111,14 +127,23 @@ export function RequestForm({
               onChange={(e) => set("typeId", e.target.value)}
             >
               <option value="">Select type</option>
-              {types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                  {t.requiresAllocation && t.remaining !== null
-                    ? ` — ${formatDuration(t.remaining, t.unit)} remaining`
-                    : ""}
-                </option>
-              ))}
+              {types.map((t) => {
+                const r = remainingFor(t.id)
+                // Without an employee there is no balance to report, so the
+                // label stays bare rather than claiming zero.
+                const suffix =
+                  !t.requiresAllocation || !v.employeeId
+                    ? ""
+                    : r === null
+                      ? " — no allocation"
+                      : ` — ${formatDuration(r, t.unit)} remaining`
+                return (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {suffix}
+                  </option>
+                )
+              })}
             </Select>
           </Field>
 
@@ -163,13 +188,23 @@ export function RequestForm({
         </FieldGrid>
 
         {selected?.requiresAllocation && (
-          <p className="mt-4 flex items-start gap-2 rounded-md bg-info-subtle px-3 py-2 text-xs text-info">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p
+            className={cn(
+              "mt-4 flex items-start gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset",
+              // Nothing left to draw on is a warning, not a neutral note.
+              v.employeeId && (selectedRemaining === null || selectedRemaining <= 0)
+                ? "bg-warning-subtle text-warning ring-warning/25"
+                : "bg-info-subtle text-info ring-info/20",
+            )}
+          >
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             <span>
               {selected.name} draws on an allocation.
-              {selected.remaining !== null
-                ? ` ${formatDuration(selected.remaining, selected.unit)} remaining — approving this request will consume from it.`
-                : " An approved allocation is required before this leave can be requested."}
+              {!v.employeeId
+                ? " Select an employee to see the remaining balance."
+                : selectedRemaining === null
+                  ? " This employee has no approved allocation of this type — one is required before the leave can be requested."
+                  : ` ${formatDuration(selectedRemaining, selected.unit)} remaining — approving this request will consume from it.`}
             </span>
           </p>
         )}

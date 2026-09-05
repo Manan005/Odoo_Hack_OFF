@@ -1,7 +1,11 @@
 import { RequestStatus } from "@prisma/client"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { RequestForm, type TypeOption } from "@/components/timeoff/RequestForm"
+import {
+  RequestForm,
+  type RemainingByEmployee,
+  type TypeOption,
+} from "@/components/timeoff/RequestForm"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { emptyRequest } from "@/lib/form-defaults"
@@ -36,32 +40,33 @@ export default async function NewRequestPage({
         })
         .then((rows) => rows.map((r) => ({ id: r.id, name: `${r.firstName} ${r.lastName}` })))
 
-  const rawTypes = await db.timeOffType.findMany({
+  const types: TypeOption[] = await db.timeOffType.findMany({
     where: { active: true },
     select: { id: true, name: true, unit: true, requiresAllocation: true },
     orderBy: { name: "asc" },
   })
 
-  // Surface the remaining balance per type so the gate is visible before submit.
-  const allocations = defaultEmployeeId
-    ? await db.timeOffAllocation.findMany({
-        where: { employeeId: defaultEmployeeId, status: RequestStatus.APPROVED },
-        select: { typeId: true, allocated: true, taken: true },
-      })
-    : []
+  // Balances for every employee the viewer may pick, not just the one this
+  // page was rendered for — the employee is chosen inside the form, and a
+  // figure computed for someone else is worse than none.
+  const allocations =
+    employees.length > 0
+      ? await db.timeOffAllocation.findMany({
+          where: {
+            employeeId: { in: employees.map((e) => e.id) },
+            status: RequestStatus.APPROVED,
+          },
+          select: { employeeId: true, typeId: true, allocated: true, taken: true },
+        })
+      : []
 
-  const remainingByType = new Map<string, number>()
+  const remaining: RemainingByEmployee = {}
   for (const a of allocations) {
-    remainingByType.set(
-      a.typeId,
-      (remainingByType.get(a.typeId) ?? 0) + balanceOf(a).remaining,
+    const perType = (remaining[a.employeeId] ??= {})
+    perType[a.typeId] = Number(
+      ((perType[a.typeId] ?? 0) + balanceOf(a).remaining).toFixed(2),
     )
   }
-
-  const types: TypeOption[] = rawTypes.map((t) => ({
-    ...t,
-    remaining: t.requiresAllocation ? (remainingByType.get(t.id) ?? 0) : null,
-  }))
 
   return (
     <>
@@ -73,6 +78,7 @@ export default async function NewRequestPage({
         initial={{ ...emptyRequest, employeeId: defaultEmployeeId }}
         employees={employees}
         types={types}
+        remaining={remaining}
       />
     </>
   )

@@ -4,7 +4,11 @@ import { Forbidden } from "@/components/shared/Forbidden"
 import { FormHeader } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ApprovalButtons } from "@/components/timeoff/ApprovalButtons"
-import { RequestForm, type TypeOption } from "@/components/timeoff/RequestForm"
+import {
+  RequestForm,
+  type RemainingByEmployee,
+  type TypeOption,
+} from "@/components/timeoff/RequestForm"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { balanceOf } from "@/lib/timeoff/balance"
@@ -39,25 +43,24 @@ export default async function RequestDetailPage({
     return <Forbidden message="You can only view your own time off requests." />
   }
 
-  const rawTypes = await db.timeOffType.findMany({
+  const types: TypeOption[] = await db.timeOffType.findMany({
     where: { active: true },
     select: { id: true, name: true, unit: true, requiresAllocation: true },
     orderBy: { name: "asc" },
   })
 
+  // The employee is fixed on an existing request, so one entry is enough.
   const allocations = await db.timeOffAllocation.findMany({
     where: { employeeId: request.employeeId, status: RequestStatus.APPROVED },
     select: { typeId: true, allocated: true, taken: true },
   })
-  const remainingByType = new Map<string, number>()
+  const remaining: RemainingByEmployee = {}
   for (const a of allocations) {
-    remainingByType.set(a.typeId, (remainingByType.get(a.typeId) ?? 0) + balanceOf(a).remaining)
+    const perType = (remaining[request.employeeId] ??= {})
+    perType[a.typeId] = Number(
+      ((perType[a.typeId] ?? 0) + balanceOf(a).remaining).toFixed(2),
+    )
   }
-
-  const types: TypeOption[] = rawTypes.map((t) => ({
-    ...t,
-    remaining: t.requiresAllocation ? (remainingByType.get(t.id) ?? 0) : null,
-  }))
 
   const employeeName = `${request.employee.firstName} ${request.employee.lastName}`
   const allocationLabel = request.allocation
@@ -111,6 +114,7 @@ export default async function RequestDetailPage({
         }}
         employees={[{ id: request.employee.id, name: employeeName }]}
         types={types}
+        remaining={remaining}
         duration={formatDuration(String(request.duration), request.type.unit)}
         allocationLabel={allocationLabel}
         readOnly={!editable}
