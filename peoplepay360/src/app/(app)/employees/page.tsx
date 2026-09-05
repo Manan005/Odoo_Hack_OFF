@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { ListToolbar } from "@/components/shared/ListToolbar"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { ActiveBadge } from "@/components/shared/StatusBadge"
+import { Surface } from "@/components/ui/surface"
 import { pageAllows, pageUser } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 
@@ -125,7 +126,7 @@ export default async function EmployeesPage({
           footer={<RowCount shown={employees.length} total={employees.length} />}
         />
       ) : employees.length === 0 ? (
-        <div className="rounded-b-lg border border-border bg-surface shadow-card">{empty}</div>
+        <Surface>{empty}</Surface>
       ) : (
         <EmployeeKanban
           employees={employees.map((e) => ({

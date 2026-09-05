@@ -6,6 +6,7 @@ import { FormHeader } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { PayslipComputation } from "@/components/payroll/PayslipComputation"
 import { Button } from "@/components/ui/button"
+import { Surface } from "@/components/ui/surface"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { fmtRange } from "@/lib/dates"
@@ -86,14 +87,14 @@ export default async function PayslipDetailPage({
                 without navigating; `?view=1` opens the browser's PDF viewer. */}
             <a href={`/api/payslips/${payslip.id}/pdf?view=1`} target="_blank" rel="noopener noreferrer">
               <Button variant="ghost">
-                <Eye className="h-4 w-4" />
-                PREVIEW
+                <Eye className="h-4 w-4" aria-hidden />
+                Preview
               </Button>
             </a>
             <a href={`/api/payslips/${payslip.id}/pdf`} download>
               <Button variant="outline">
-                <Printer className="h-4 w-4" />
-                DOWNLOAD PAYSLIP
+                <Printer className="h-4 w-4" aria-hidden />
+                Download PDF
               </Button>
             </a>
           </span>
@@ -101,18 +102,18 @@ export default async function PayslipDetailPage({
       />
 
       {warnings.length > 0 && (
-        <div className="mb-5 space-y-1.5 rounded-lg border-l-2 border-warning bg-warning-subtle px-4 py-3">
+        <div className="mb-5 space-y-1.5 rounded-xl bg-warning-subtle px-4 py-3 ring-1 ring-inset ring-warning/25">
           {warnings.map((w) => (
             <p key={w} className="flex items-start gap-2 text-xs text-warning">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {w}
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="text-foreground/90">{w}</span>
             </p>
           ))}
         </div>
       )}
 
-      <section className="mb-5 rounded-lg border border-border bg-surface p-5 shadow-card">
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-4">
+      <Surface as="section" padded className="mb-5">
+        <dl className="stagger grid grid-cols-2 gap-x-8 gap-y-5 md:grid-cols-4">
           {[
             ["Employee", employeeName],
             ["Employee Code", payslip.employee.employeeCode],
@@ -159,12 +160,14 @@ export default async function PayslipDetailPage({
             ],
           ].map(([label, value]) => (
             <div key={String(label)}>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {label}
+              </dt>
               <dd className="mt-1 text-sm font-medium">{value}</dd>
             </div>
           ))}
         </dl>
-      </section>
+      </Surface>
 
       <PayslipComputation
         lines={payslip.lines}

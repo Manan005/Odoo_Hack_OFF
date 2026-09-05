@@ -6,6 +6,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Field, Input, Select } from "@/components/ui/field"
+import { Surface } from "@/components/ui/surface"
 import type { ActionResult } from "@/lib/result"
 
 export interface SimpleRow {
@@ -76,7 +77,7 @@ export function SimpleNameList({
   }
 
   const editor = (
-    <div className="flex flex-wrap items-end gap-3 rounded-md border border-primary-border bg-primary-subtle/40 p-3">
+    <div className="flex origin-top animate-scale-in flex-wrap items-end gap-3 rounded-xl border border-primary/30 bg-primary-subtle/30 p-3">
       <Field label="Name" htmlFor="name" error={error ?? undefined} className="min-w-56">
         <Input
           id="name"
@@ -117,31 +118,31 @@ export function SimpleNameList({
       {editingId === "new" ? (
         editor
       ) : (
-        <Button size="sm" onClick={startNew}>
-          <Plus className="h-3.5 w-3.5" />
-          New {entityLabel}
+        <Button onClick={startNew} className="pl-3">
+          <Plus className="h-4 w-4" aria-hidden />
+          New {entityLabel.toLowerCase()}
         </Button>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-card">
+      <Surface className="overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="border-b border-border bg-surface-muted">
-              <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-border/70 bg-surface-muted/60">
+              <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Name
               </th>
               {managers && (
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Manager
                 </th>
               )}
-              <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Employees
               </th>
               <th className="w-12" />
             </tr>
           </thead>
-          <tbody>
+          <tbody className="stagger-rows">
             {rows.length === 0 && (
               <tr>
                 <td
@@ -160,24 +161,31 @@ export function SimpleNameList({
                   </td>
                 </tr>
               ) : (
-                <tr key={row.id} className="h-11 border-b border-border last:border-0">
-                  <td className="px-4 py-2.5 text-sm font-medium">{row.name}</td>
+                <tr
+                  key={row.id}
+                  className="group h-11 border-b border-border/60 transition-colors duration-100 last:border-0 hover:bg-surface-hover/70"
+                >
+                  <td className="px-4 py-2.5 text-sm font-medium transition-shadow duration-150 group-hover:shadow-[inset_2px_0_0_0_var(--color-primary)]">
+                    {row.name}
+                  </td>
                   {managers && (
                     <td className="px-4 py-2.5 text-sm text-muted-foreground">
                       {row.managerName ?? "—"}
                     </td>
                   )}
                   <td className="px-4 py-2.5 text-right text-sm tabular">
-                    {row.employeeCount}
+                    <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-xs font-semibold">
+                      {row.employeeCount}
+                    </span>
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <button
                       type="button"
                       aria-label={`Edit ${row.name}`}
                       onClick={() => startEdit(row)}
-                      className="rounded p-1 text-muted-foreground hover:bg-surface-hover hover:text-primary"
+                      className="rounded-md p-1.5 text-muted-foreground opacity-60 transition-[opacity,background-color,color,transform] duration-150 hover:bg-primary-subtle hover:text-primary active:scale-90 group-hover:opacity-100 focus-visible:opacity-100"
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil className="h-3.5 w-3.5" aria-hidden />
                     </button>
                   </td>
                 </tr>
@@ -185,7 +193,7 @@ export function SimpleNameList({
             )}
           </tbody>
         </table>
-      </div>
+      </Surface>
     </div>
   )
 }

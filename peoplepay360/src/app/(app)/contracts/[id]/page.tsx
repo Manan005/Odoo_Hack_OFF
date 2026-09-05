@@ -4,6 +4,7 @@ import { ContractForm } from "@/components/contracts/ContractForm"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { FormHeader } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
+import { Surface } from "@/components/ui/surface"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { formatINR } from "@/lib/money"
@@ -71,21 +72,25 @@ export default async function ContractDetailPage({
           subtitle={employeeName}
           badge={<StatusBadge status={displayStatus(contract)} />}
         />
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-card">
-          <dl className="grid grid-cols-2 gap-4 text-sm">
+        <Surface padded>
+          <dl className="stagger grid grid-cols-2 gap-4 text-sm">
             <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Wage / Month</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Wage / Month
+              </dt>
               <dd className="mt-1 font-medium tabular">{formatINR(String(contract.wage))}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Period</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Period
+              </dt>
               <dd className="mt-1 font-medium">
                 {contract.startDate.toDateString()} —{" "}
                 {contract.endDate ? contract.endDate.toDateString() : "open-ended"}
               </dd>
             </div>
           </dl>
-        </div>
+        </Surface>
       </>
     )
   }

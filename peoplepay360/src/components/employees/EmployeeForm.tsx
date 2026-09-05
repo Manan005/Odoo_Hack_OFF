@@ -8,7 +8,7 @@ import { createEmployee, updateEmployee } from "@/actions/employee.actions"
 import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field"
-import { cn } from "@/lib/utils"
+import { UnderlineTabs } from "@/components/ui/tabs"
 import { EMPLOYEE_TYPE_LABEL, GENDER_LABEL } from "@/lib/validation/employee"
 
 export interface Option {
@@ -101,26 +101,10 @@ export function EmployeeForm({
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={cn(
-              "-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors",
-              tab === t
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      <UnderlineTabs tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === "Work Information" && (
-        <FormSection>
+        <FormSection key="work" className="animate-fade-in">
           <FieldGrid>
             <Field label="First Name" htmlFor="firstName" required error={errors.firstName}>
               <Input
@@ -262,7 +246,7 @@ export function EmployeeForm({
       )}
 
       {tab === "Private Information" && (
-        <>
+        <div key="private" className="stagger space-y-5">
           <FormSection title="Personal">
             <FieldGrid>
               <Field label="Personal Email" htmlFor="personalEmail" error={errors.personalEmail}>
@@ -335,10 +319,10 @@ export function EmployeeForm({
             </FieldGrid>
           </FormSection>
 
-          <FormSection title="Bank details">
-            <p className="mb-4 text-xs text-muted-foreground">
-              Missing bank details raise a payroll warning when a payrun is computed.
-            </p>
+          <FormSection
+            title="Bank details"
+            description="Missing bank details raise a payroll warning when a payrun is computed."
+          >
             <FieldGrid>
               <Field label="Bank Account Number" htmlFor="bankAccountNumber">
                 <Input
@@ -366,14 +350,14 @@ export function EmployeeForm({
               </Field>
             </FieldGrid>
           </FormSection>
-        </>
+        </div>
       )}
 
       {tab === "HR Settings" && (
-        <FormSection>
+        <FormSection key="hr" className="animate-fade-in">
           <FieldGrid>
             <Field label="Employee Code" hint="Assigned automatically.">
-              <div className="flex h-9 items-center rounded-md bg-surface-muted px-3 font-mono text-[13px]">
+              <div className="flex h-9 items-center rounded-lg border border-dashed border-border bg-surface-muted/60 px-3 font-mono text-[13px]">
                 {v.employeeCode ?? "assigned on save"}
               </div>
             </Field>

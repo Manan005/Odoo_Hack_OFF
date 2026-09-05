@@ -151,9 +151,10 @@ export default async function EmployeeDetailPage({
       />
 
       {employee.workingSchedule && (
-        <p className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-surface-muted px-2.5 py-1 text-xs text-muted-foreground">
-          <CalendarClock className="h-3.5 w-3.5" />
-          Working schedule: {employee.workingSchedule.name}
+        <p className="mb-4 inline-flex items-center gap-1.5 rounded-lg bg-surface-muted/80 px-2.5 py-1.5 text-xs text-muted-foreground ring-1 ring-inset ring-border/60">
+          <CalendarClock className="h-3.5 w-3.5" aria-hidden />
+          Working schedule ·{" "}
+          <span className="font-medium text-foreground">{employee.workingSchedule.name}</span>
         </p>
       )}
 

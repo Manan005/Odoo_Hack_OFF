@@ -12,6 +12,7 @@ import {
   refuseRequest,
 } from "@/actions/timeoff.actions"
 import { Button } from "@/components/ui/button"
+import { useConfirm } from "@/components/ui/confirm-dialog"
 import type { ActionResult } from "@/lib/result"
 
 type Kind = "allocation" | "request"
@@ -44,6 +45,7 @@ export function ApprovalButtons({
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const { confirm, dialog } = useConfirm()
   const { approve, refuse } = ACTIONS[kind]
 
   const run = (fn: (id: string) => Promise<ActionResult<{ id: string }>>, success: string) =>
@@ -57,25 +59,29 @@ export function ApprovalButtons({
       }
     })
 
-  const onRefuse = () => {
-    if (
-      status === RequestStatus.APPROVED &&
-      !confirm("This will release the consumed balance back to the allocation. Continue?")
-    ) {
-      return
+  const onRefuse = async () => {
+    if (status === RequestStatus.APPROVED) {
+      const ok = await confirm({
+        title: "Refuse an approved record?",
+        description: "The consumed balance is released back to the allocation.",
+        confirmLabel: "Refuse",
+        tone: "danger",
+      })
+      if (!ok) return
     }
     run(refuse, "Refused — any consumed balance has been released.")
   }
 
   return (
     <span className="inline-flex items-center gap-1.5">
+      {dialog}
       <Button
         size={size}
         variant="success"
         disabled={pending || status === RequestStatus.APPROVED}
         onClick={() => run(approve, "Approved.")}
       >
-        <Check className="h-3.5 w-3.5" />
+        <Check className="h-3.5 w-3.5" aria-hidden />
         Approve
       </Button>
       <Button
@@ -84,7 +90,7 @@ export function ApprovalButtons({
         disabled={pending || status === RequestStatus.REFUSED}
         onClick={onRefuse}
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-3.5 w-3.5" aria-hidden />
         Refuse
       </Button>
     </span>

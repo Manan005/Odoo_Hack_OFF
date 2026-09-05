@@ -8,7 +8,10 @@ import { Forbidden } from "@/components/shared/Forbidden"
 import { FormHeader } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { PayrunActionBar } from "@/components/payroll/PayrunActionBar"
+import { PayrunStepper } from "@/components/payroll/PayrunStepper"
 import { WarningsPanel } from "@/components/payroll/WarningsPanel"
+import { NumberTicker } from "@/components/ui/number-ticker"
+import { Surface } from "@/components/ui/surface"
 import { pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { fmtRange } from "@/lib/dates"
@@ -104,6 +107,7 @@ export default async function PayrunDetailPage({
   const totalNet = payrun.payslips.reduce((sum, p) => sum + Number(p.net), 0)
   const blockingCount = payrun.warnings.filter((w) => w.severity === "BLOCKING").length
   const issues = payrun.warnings.length
+  const allSent = payrun.payslips.length > 0 && payrun.payslips.every((p) => p.sentAt !== null)
 
   return (
     <>
@@ -116,8 +120,8 @@ export default async function PayrunDetailPage({
           <span className="inline-flex items-center gap-2">
             <StatusBadge status={payrun.status} />
             {issues > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-warning-subtle px-2 py-0.5 text-xs font-medium text-warning">
-                <AlertTriangle className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1 rounded-md bg-warning-subtle px-2 py-0.5 text-xs font-medium text-warning ring-1 ring-inset ring-warning/25">
+                <AlertTriangle className="h-3 w-3" aria-hidden />
                 {issues} warning{issues === 1 ? "" : "s"}
               </span>
             )}
@@ -132,29 +136,40 @@ export default async function PayrunDetailPage({
         }
       />
 
-      <WarningsPanel warnings={payrun.warnings} />
+      <Surface className="mb-5 grid gap-6 px-6 py-5 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+        <PayrunStepper status={payrun.status} allSent={allSent} />
+        <dl className="stagger grid grid-cols-3 gap-4 border-t border-border/70 pt-4 text-sm lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Structure
+            </dt>
+            <dd className="mt-1">
+              <Link
+                href={`/payroll/structures/${payrun.structure.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {payrun.structure.name}
+              </Link>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Period
+            </dt>
+            <dd className="mt-1 font-medium">{fmtRange(payrun.periodStart, payrun.periodEnd)}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Total Net
+            </dt>
+            <dd className="mt-1 text-base font-semibold">
+              <NumberTicker value={formatINR(totalNet)} />
+            </dd>
+          </div>
+        </dl>
+      </Surface>
 
-      <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-5 py-3 text-sm shadow-card">
-        <span>
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Structure</span>{" "}
-          <Link
-            href={`/payroll/structures/${payrun.structure.id}`}
-            className="ml-1.5 font-medium text-primary hover:underline"
-          >
-            {payrun.structure.name}
-          </Link>
-        </span>
-        <span>
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Period</span>{" "}
-          <span className="ml-1.5 font-medium">
-            {fmtRange(payrun.periodStart, payrun.periodEnd)}
-          </span>
-        </span>
-        <span>
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Total Net</span>{" "}
-          <span className="ml-1.5 font-semibold tabular">{formatINR(totalNet)}</span>
-        </span>
-      </div>
+      <WarningsPanel warnings={payrun.warnings} />
 
       <DataTable
         columns={columns}

@@ -1,20 +1,16 @@
-import { ArrowLeft, ShieldAlert } from "lucide-react"
+import { ArrowLeft, Compass } from "lucide-react"
 import Link from "next/link"
 import { StatusPage } from "@/components/shared/StatusPage"
 import { Button } from "@/components/ui/button"
 
-export function Forbidden({
-  message = "Your role does not grant access to this area. If you believe this is a mistake, contact your administrator.",
-}: {
-  message?: string
-}) {
+export default function NotFound() {
   return (
     <StatusPage
-      code="403"
-      icon={ShieldAlert}
-      tone="danger"
-      title="Access denied"
-      message={message}
+      code="404"
+      icon={Compass}
+      tone="neutral"
+      title="Page not found"
+      message="The record may have been removed, or the link is out of date."
       actions={
         <Link href="/">
           <Button variant="outline">

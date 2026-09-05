@@ -106,11 +106,9 @@ export default async function PayrunsPage({
         actions={<PayrunWizard structures={structures} departments={departments} />}
       />
 
-      <div className="flex h-12 items-center gap-3 rounded-t-lg border border-b-0 border-border bg-surface-muted px-4">
-        <span className="text-xs text-muted-foreground">
-          Clicking NEW opens a wizard — the payrun is created only after you select employees.
-        </span>
-      </div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        New payrun opens a two-step wizard — the run is created only after you select employees.
+      </p>
 
       <DataTable
         columns={columns}

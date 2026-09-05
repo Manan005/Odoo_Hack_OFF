@@ -1,9 +1,11 @@
 "use client"
 
 import { EmployeeType } from "@prisma/client"
+import { Building2, SlidersHorizontal } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import { Field, Select } from "@/components/ui/field"
+import { Surface } from "@/components/ui/surface"
 import { EMPLOYEE_TYPE_LABEL } from "@/lib/validation/employee"
 
 export interface PeriodOption {
@@ -37,7 +39,12 @@ export function DashboardFilterBar({
   }
 
   return (
-    <div className="mb-5 grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 shadow-card sm:grid-cols-2 lg:grid-cols-4">
+    <Surface className="mb-5 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-[auto_1fr_1fr_1fr_auto] lg:items-end">
+      <div className="hidden h-9 items-center gap-2 pr-2 text-xs font-medium text-muted-foreground lg:flex">
+        <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+        Filters
+      </div>
+
       <Field label="Period" htmlFor="period">
         <Select
           id="period"
@@ -82,11 +89,10 @@ export function DashboardFilterBar({
         </Select>
       </Field>
 
-      <Field label="Company">
-        <div className="flex h-9 items-center rounded-md bg-surface-muted px-3 text-sm">
-          {companyName}
-        </div>
-      </Field>
-    </div>
+      <div className="flex h-9 items-center gap-2 self-end rounded-lg bg-surface-muted/70 px-3 text-sm ring-1 ring-inset ring-border/60">
+        <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+        <span className="font-medium">{companyName}</span>
+      </div>
+    </Surface>
   )
 }

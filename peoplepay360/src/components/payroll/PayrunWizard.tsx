@@ -1,7 +1,7 @@
 "use client"
 
 import { EmployeeType } from "@prisma/client"
-import { X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -146,30 +146,59 @@ export function PayrunWizard({
       return next
     })
 
+  const closeButton = (
+    <button
+      type="button"
+      aria-label="Close"
+      onClick={close}
+      className="rounded-lg p-1.5 text-muted-foreground transition-colors duration-100 hover:bg-surface-hover hover:text-foreground active:scale-95"
+    >
+      <X className="h-4 w-4" aria-hidden />
+    </button>
+  )
+
+  const stepIndicator = (
+    <div className="flex items-center gap-1.5" aria-label={`Step ${step} of 2`}>
+      {[1, 2].map((s) => (
+        <span
+          key={s}
+          className={cn(
+            "h-1 rounded-full transition-[width,background-color] duration-300 ease-out-quart",
+            s === step ? "w-6 bg-primary" : s < step ? "w-3 bg-primary/50" : "w-3 bg-border",
+          )}
+        />
+      ))}
+    </div>
+  )
+
   return (
     <>
-      <Button onClick={() => setOpen(true)}>NEW</Button>
+      <Button onClick={() => setOpen(true)} className="pl-3">
+        <Plus className="h-4 w-4" aria-hidden />
+        New payrun
+      </Button>
 
       <dialog
         ref={dialogRef}
         onClose={close}
-        className="w-full max-w-3xl rounded-lg border border-border bg-surface p-0 text-foreground shadow-modal backdrop:bg-black/40"
+        className="w-full max-w-3xl rounded-2xl border border-border/70 bg-surface p-0 text-foreground shadow-modal backdrop:bg-transparent"
       >
         {step === 1 ? (
-          <div>
-            <header className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h2 className="text-xl font-semibold">New Pay Run</h2>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={close}
-                className="rounded p-1 text-muted-foreground hover:bg-surface-hover"
-              >
-                <X className="h-4 w-4" />
-              </button>
+          <div key="step-1" className="animate-fade-in">
+            <header className="flex items-center justify-between border-b border-border/70 px-6 py-4">
+              <div>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                  New pay run
+                </p>
+                <h2 className="text-lg font-semibold tracking-tight">Define the scope</h2>
+              </div>
+              <div className="flex items-center gap-4">
+                {stepIndicator}
+                {closeButton}
+              </div>
             </header>
 
-            <div className="grid grid-cols-1 gap-x-8 gap-y-4 px-5 py-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-6 py-6 md:grid-cols-2">
               <Field label="Pay Run Name" htmlFor="name" hint="Defaults to the period month.">
                 <Input
                   id="name"
@@ -242,11 +271,12 @@ export function PayrunWizard({
                       key={t}
                       type="button"
                       onClick={() => toggleType(t)}
+                      aria-pressed={scope.employeeTypes.includes(t)}
                       className={cn(
-                        "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+                        "rounded-lg border px-2.5 py-1 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-95",
                         scope.employeeTypes.includes(t)
-                          ? "border-primary bg-primary-subtle text-primary"
-                          : "border-border text-muted-foreground hover:bg-surface-hover",
+                          ? "border-primary/50 bg-primary-subtle text-primary"
+                          : "border-border text-muted-foreground hover:border-border-strong hover:bg-surface-hover hover:text-foreground",
                       )}
                     >
                       {EMPLOYEE_TYPE_LABEL[t]}
@@ -256,7 +286,7 @@ export function PayrunWizard({
               </Field>
             </div>
 
-            <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+            <footer className="flex items-center justify-end gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
               <Button variant="ghost" onClick={close} disabled={pending}>
                 Cancel
               </Button>
@@ -266,35 +296,37 @@ export function PayrunWizard({
             </footer>
           </div>
         ) : (
-          <div>
-            <header className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h2 className="text-xl font-semibold">Select Employee Records</h2>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={close}
-                className="rounded p-1 text-muted-foreground hover:bg-surface-hover"
-              >
-                <X className="h-4 w-4" />
-              </button>
+          <div key="step-2" className="animate-fade-in">
+            <header className="flex items-center justify-between border-b border-border/70 px-6 py-4">
+              <div>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                  New pay run
+                </p>
+                <h2 className="text-lg font-semibold tracking-tight">Select employee records</h2>
+              </div>
+              <div className="flex items-center gap-4">
+                {stepIndicator}
+                {closeButton}
+              </div>
             </header>
 
-            <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+            <div className="flex items-center gap-3 border-b border-border/70 px-6 py-3">
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search employees..."
+                placeholder="Search employees…"
                 className="h-8 w-72 text-xs"
               />
-              <span className="ml-auto text-xs tabular text-muted-foreground">
-                {selected.size} of {eligible.length} selected
+              <span className="ml-auto rounded-md bg-surface-muted px-2 py-1 text-xs tabular text-muted-foreground">
+                <span className="font-semibold text-foreground">{selected.size}</span> of{" "}
+                {eligible.length} selected
               </span>
             </div>
 
             <div className="max-h-[22rem] overflow-y-auto">
               <table className="w-full border-collapse">
-                <thead className="sticky top-0 bg-surface-muted">
-                  <tr className="border-b border-border">
+                <thead className="sticky top-0 z-10 bg-surface-muted backdrop-blur">
+                  <tr className="border-b border-border/70">
                     <th className="w-10 px-4 py-2.5">
                       <Checkbox
                         checked={allVisibleSelected}
@@ -306,7 +338,7 @@ export function PayrunWizard({
                       <th
                         key={h}
                         className={cn(
-                          "px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+                          "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
                           i === 3 ? "text-right" : "text-left",
                         )}
                       >
@@ -315,11 +347,15 @@ export function PayrunWizard({
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="stagger-rows">
                   {visible.map((e) => (
                     <tr
                       key={e.id}
-                      className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-hover"
+                      aria-selected={selected.has(e.id)}
+                      className={cn(
+                        "cursor-pointer border-b border-border/60 transition-colors duration-100 last:border-0",
+                        selected.has(e.id) ? "bg-primary-subtle/40" : "hover:bg-surface-hover",
+                      )}
                       onClick={() =>
                         setSelected((prev) => {
                           const next = new Set(prev)
@@ -358,9 +394,9 @@ export function PayrunWizard({
               </table>
             </div>
 
-            <footer className="flex items-center justify-between gap-2 border-t border-border px-5 py-4">
-              <p className="text-xs italic text-muted-foreground">
-                The Payrun is created only after employee selection.
+            <footer className="flex items-center justify-between gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
+              <p className="text-xs text-muted-foreground">
+                The payrun is created only after employee selection.
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" onClick={() => setStep(1)} disabled={pending}>
@@ -372,7 +408,7 @@ export function PayrunWizard({
                   loading={pending}
                   loadingText="Creating…"
                 >
-                  Create Payrun ({selected.size})
+                  Create payrun ({selected.size})
                 </Button>
               </div>
             </footer>

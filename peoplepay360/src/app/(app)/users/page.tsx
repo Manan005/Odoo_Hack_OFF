@@ -50,7 +50,7 @@ const columns: Column<Row>[] = [
         {r.roles.map((role) => (
           <span
             key={role}
-            className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+            className="rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/60"
           >
             {ROLE_LABEL[role]}
           </span>
@@ -104,7 +104,7 @@ export default async function UsersPage({
 
       <ListToolbar
         newHref="/users/new"
-        newLabel="+ New User"
+        newLabel="New user"
         searchPlaceholder="Search users, employees or email…"
       >
         <Link

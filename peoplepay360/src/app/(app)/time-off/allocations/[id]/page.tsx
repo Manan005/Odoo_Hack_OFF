@@ -5,6 +5,7 @@ import { FormHeader } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { AllocationForm } from "@/components/timeoff/AllocationForm"
 import { ApprovalButtons } from "@/components/timeoff/ApprovalButtons"
+import { Surface } from "@/components/ui/surface"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { balanceOf } from "@/lib/timeoff/balance"
@@ -108,15 +109,16 @@ export default async function AllocationDetailPage({
         />
 
         {allocation.requests.length > 0 && (
-          <section className="rounded-lg border border-border bg-surface p-5 shadow-card">
-            <h2 className="mb-3 border-b border-border pb-2 text-[15px] font-semibold">
+          <Surface as="section" padded>
+            <h2 className="mb-3 border-b border-border/70 pb-3 text-[15px] font-semibold tracking-tight">
               Approved requests drawing on this allocation
             </h2>
-            <ul className="space-y-1.5 text-sm">
+            <ul className="stagger-rows divide-y divide-border/60 text-sm">
               {allocation.requests.map((r) => (
-                <li key={r.id} className="flex items-center justify-between">
-                  <span>
-                    {r.startDate.toISOString().slice(0, 10)} →{" "}
+                <li key={r.id} className="flex items-center justify-between py-2">
+                  <span className="tabular">
+                    {r.startDate.toISOString().slice(0, 10)}
+                    <span className="text-subtle-foreground"> → </span>
                     {r.endDate.toISOString().slice(0, 10)}
                   </span>
                   <span className="tabular font-medium">
@@ -125,7 +127,7 @@ export default async function AllocationDetailPage({
                 </li>
               ))}
             </ul>
-          </section>
+          </Surface>
         )}
       </div>
     </>

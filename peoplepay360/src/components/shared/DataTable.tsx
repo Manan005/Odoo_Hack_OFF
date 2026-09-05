@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Surface } from "@/components/ui/surface"
 import { cn } from "@/lib/utils"
 
 export interface Column<T> {
@@ -30,17 +31,17 @@ export function DataTable<T>({
   footer?: React.ReactNode
 }) {
   return (
-    <div className="overflow-hidden rounded-b-lg border border-border bg-surface shadow-card">
+    <Surface className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="border-b border-border bg-surface-muted">
+            <tr className="border-b border-border/70 bg-surface-muted/60">
               {columns.map((c) => (
                 <th
                   key={c.key}
                   scope="col"
                   className={cn(
-                    "px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+                    "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
                     c.numeric ? "text-right" : "text-left",
                     c.className,
                   )}
@@ -50,7 +51,7 @@ export function DataTable<T>({
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="stagger-rows">
             {rows.length === 0 && (
               <tr>
                 <td colSpan={columns.length}>{empty}</td>
@@ -59,7 +60,7 @@ export function DataTable<T>({
             {rows.map((row) => (
               <tr
                 key={rowKey(row)}
-                className="h-11 border-b border-border transition-colors last:border-0 hover:bg-surface-hover"
+                className="group h-11 border-b border-border/60 transition-colors duration-100 last:border-0 hover:bg-surface-hover/70"
               >
                 {columns.map((c, i) => {
                   const content = c.render(row)
@@ -69,6 +70,10 @@ export function DataTable<T>({
                       className={cn(
                         "px-4 py-2.5 text-sm",
                         c.numeric && "text-right tabular",
+                        // The accent bar lives on the first cell as an inset
+                        // shadow — pseudo-elements on <tr> are unreliable.
+                        i === 0 &&
+                          "transition-shadow duration-150 group-hover:shadow-[inset_2px_0_0_0_var(--color-primary)]",
                         c.className,
                       )}
                     >
@@ -77,7 +82,7 @@ export function DataTable<T>({
                       {rowHref && i === 0 ? (
                         <Link
                           href={rowHref(row)}
-                          className="block font-medium text-foreground hover:text-primary"
+                          className="block font-medium text-foreground transition-colors duration-100 group-hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-md"
                         >
                           {content}
                         </Link>
@@ -93,11 +98,11 @@ export function DataTable<T>({
         </table>
       </div>
       {footer && (
-        <div className="flex items-center justify-end border-t border-border px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-end border-t border-border/70 bg-surface-muted/40 px-4 py-2 text-xs text-muted-foreground">
           {footer}
         </div>
       )}
-    </div>
+    </Surface>
   )
 }
 

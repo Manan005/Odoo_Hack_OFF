@@ -1,6 +1,8 @@
 import { Construction } from "lucide-react"
 import Link from "next/link"
+import { StatusPage } from "@/components/shared/StatusPage"
 import { Button } from "@/components/ui/button"
+import { Surface } from "@/components/ui/surface"
 
 /**
  * Placeholder for routes the nav already points at but a later phase builds.
@@ -20,31 +22,39 @@ export function ComingInPhase({
   buildsOn?: string[]
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-      <Construction className="h-9 w-9 text-warning" />
-      <h1 className="mt-4 text-xl font-semibold">{title}</h1>
-      <p className="mt-1 max-w-lg text-sm text-muted-foreground">{description}</p>
-
-      <span className="mt-4 inline-flex items-center gap-2 rounded-md bg-warning-subtle px-3 py-1.5 text-xs font-medium text-warning">
-        Scheduled for {phase} · hours {hours}
-      </span>
+    <>
+      <StatusPage
+        icon={Construction}
+        tone="warning"
+        title={title}
+        message={description}
+        actions={
+          <>
+            <span className="inline-flex items-center rounded-md bg-warning-subtle px-3 py-1.5 text-xs font-medium text-warning ring-1 ring-inset ring-warning/25">
+              Scheduled for {phase} · hours {hours}
+            </span>
+            <Link href="/employees">
+              <Button variant="outline">Go to Employees</Button>
+            </Link>
+          </>
+        }
+      />
 
       {buildsOn && buildsOn.length > 0 && (
-        <div className="mt-5 w-full max-w-md rounded-lg border border-border bg-surface p-4 text-left">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <Surface padded className="mx-auto -mt-12 w-full max-w-md text-left">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Depends on
           </p>
           <ul className="space-y-1 text-[13px] text-muted-foreground">
             {buildsOn.map((item) => (
-              <li key={item}>• {item}</li>
+              <li key={item} className="flex items-center gap-2">
+                <span aria-hidden className="h-1 w-1 rounded-full bg-border-strong" />
+                {item}
+              </li>
             ))}
           </ul>
-        </div>
+        </Surface>
       )}
-
-      <Link href="/employees" className="mt-5">
-        <Button variant="outline">Go to Employees</Button>
-      </Link>
-    </div>
+    </>
   )
 }

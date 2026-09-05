@@ -76,7 +76,7 @@ export default async function WorkingSchedulesPage({
 
       <ListToolbar
         newHref="/working-schedules/new"
-        newLabel="+ New Schedule"
+        newLabel="New schedule"
         searchPlaceholder="Search schedules…"
       />
 

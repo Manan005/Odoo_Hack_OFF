@@ -111,7 +111,8 @@ export default async function PayrollDashboardPage({
   return (
     <>
       <PageHeader
-        title="Payroll Dashboard"
+        eyebrow="Payroll"
+        title="Dashboard"
         subtitle="Every figure is aggregated live across employees, contracts, attendance, time off and payroll."
       />
 
@@ -126,7 +127,7 @@ export default async function PayrollDashboardPage({
         }}
       />
 
-      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="stagger mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard
           label="Total Net Salary Paid"
           value={formatLakh(kpis.totalNet)}
@@ -159,7 +160,7 @@ export default async function PayrollDashboardPage({
         />
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="stagger mb-5 grid grid-cols-1 gap-4 xl:grid-cols-3 [--stagger-offset:4]">
         <ChartCard
           title="Salary Cost by Department"
           source="Payslips + Employee Department"
@@ -176,18 +177,19 @@ export default async function PayrollDashboardPage({
         </ChartCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="stagger grid grid-cols-1 gap-4 xl:grid-cols-2">
         <AttendancePanel data={attendance} />
         <TimeOffPanel rows={timeOff} />
         <DepartmentPanel rows={deptOverview} />
         <AlertsPanel alerts={statusSplit.alerts} />
       </div>
 
-      <p className="mt-5 rounded-lg border border-border bg-surface-muted px-4 py-3 text-xs text-muted-foreground">
-        <span className="font-medium">Models aggregated:</span> Employees and Departments for
-        headcount and grouping · Contracts for wage and schedule · Payruns and Payslips for
-        salary totals, paid versus pending, and trend · Attendance for presence, absences and
-        overtime · Time Off Requests and Allocations for leave taken and remaining balance.
+      <p className="mt-6 rounded-xl border border-dashed border-border/80 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+        <span className="font-medium text-foreground">Models aggregated</span> · Employees and
+        Departments for headcount and grouping · Contracts for wage and schedule · Payruns and
+        Payslips for salary totals, paid versus pending, and trend · Attendance for presence,
+        absences and overtime · Time Off Requests and Allocations for leave taken and remaining
+        balance.
       </p>
     </>
   )

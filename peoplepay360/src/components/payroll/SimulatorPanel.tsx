@@ -8,6 +8,8 @@ import { runSimulation, type SimulationResult } from "@/actions/simulator.action
 import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Field, Input, Select } from "@/components/ui/field"
+import { NumberTicker } from "@/components/ui/number-ticker"
+import { Surface } from "@/components/ui/surface"
 import { formatINR } from "@/lib/money"
 import type { SimulatorOptions } from "@/lib/payroll/simulator"
 import { cn } from "@/lib/utils"
@@ -216,13 +218,13 @@ export function SimulatorPanel({
           </Field>
         </FieldGrid>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button onClick={run} loading={pending} loadingText="Computing…">
-            <FlaskConical className="h-4 w-4" />
-            RUN SIMULATION
+            <FlaskConical className="h-4 w-4" aria-hidden />
+            Run simulation
           </Button>
           <Button variant="ghost" onClick={resetOverrides} disabled={pending || !hasOverride}>
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4" aria-hidden />
             Reset overrides
           </Button>
           <span className="ml-auto text-xs text-muted-foreground">
@@ -232,9 +234,9 @@ export function SimulatorPanel({
       </FormSection>
 
       {result && (
-        <>
+        <div key={result.simulated.net + result.periodLabel} className="stagger space-y-5">
           {result.matchesStored && !hasOverride && (
-            <p className="rounded-md border-l-2 border-success bg-success-subtle px-4 py-3 text-xs text-success">
+            <p className="rounded-xl bg-success-subtle px-4 py-3 text-xs text-success ring-1 ring-inset ring-success/20">
               Baseline verified — with no overrides this reproduces {result.actual?.reference}{" "}
               exactly, to the paisa. Every number below therefore comes from the same engine
               payroll runs.
@@ -242,24 +244,24 @@ export function SimulatorPanel({
           )}
 
           {result.changed.length > 0 && (
-            <div className="rounded-lg border border-border bg-surface p-5 shadow-card">
-              <h3 className="mb-3 text-sm font-semibold">What you changed</h3>
+            <Surface padded>
+              <h3 className="mb-3 text-sm font-semibold tracking-tight">What you changed</h3>
               <ul className="space-y-1.5">
                 {result.changed.map((c) => (
                   <li key={c.label} className="flex items-center gap-2 text-sm">
                     <span className="w-40 text-muted-foreground">{c.label}</span>
                     <span className="tabular text-muted-foreground line-through">{c.from}</span>
-                    <span className="text-muted-foreground">→</span>
+                    <span className="text-subtle-foreground">→</span>
                     <span className="tabular font-medium text-primary">{c.to}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </Surface>
           )}
 
-          <div className="rounded-lg border border-border bg-surface shadow-card">
-            <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-5 py-4">
-              <h3 className="text-sm font-semibold">
+          <Surface className="overflow-hidden">
+            <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/70 px-5 py-4">
+              <h3 className="text-sm font-semibold tracking-tight">
                 {result.employeeName} · {result.structureName}
               </h3>
               <p className="text-xs text-muted-foreground">
@@ -281,11 +283,11 @@ export function SimulatorPanel({
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-5 py-2.5 text-left font-medium">Rule</th>
-                    <th className="px-5 py-2.5 text-right font-medium">Actual</th>
-                    <th className="px-5 py-2.5 text-right font-medium">Simulated</th>
-                    <th className="px-5 py-2.5 text-right font-medium">Delta</th>
+                  <tr className="border-b border-border/70 bg-surface-muted/60 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <th className="px-5 py-2.5 text-left font-semibold">Rule</th>
+                    <th className="px-5 py-2.5 text-right font-semibold">Actual</th>
+                    <th className="px-5 py-2.5 text-right font-semibold">Simulated</th>
+                    <th className="px-5 py-2.5 text-right font-semibold">Delta</th>
                   </tr>
                 </thead>
 
@@ -316,24 +318,29 @@ export function SimulatorPanel({
                 </tfoot>
               </table>
             </div>
-          </div>
+          </Surface>
 
-          <details className="rounded-lg border border-border bg-surface p-5 shadow-card">
-            <summary className="cursor-pointer text-sm font-semibold">
-              Facts fed to the engine
-            </summary>
-            <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-4">
-              {Object.entries(result.facts).map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {label}
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium tabular">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </details>
-        </>
+          <Surface as="section" padded>
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold tracking-tight">
+                Facts fed to the engine
+                <span className="text-xs font-normal text-muted-foreground transition-transform duration-200 group-open:rotate-180">
+                  ▾
+                </span>
+              </summary>
+              <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-4">
+                {Object.entries(result.facts).map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {label}
+                    </dt>
+                    <dd className="mt-1 text-sm font-medium tabular">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          </Surface>
+        </div>
       )}
     </div>
   )
@@ -350,17 +357,20 @@ function SimBody({
 }) {
   if (lines.length === 0) return null
   return (
-    <tbody>
-      <tr className="bg-surface-muted">
+    <tbody className="stagger-rows">
+      <tr className="bg-surface-muted/40">
         <td
           colSpan={4}
-          className="px-5 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+          className="px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-subtle-foreground"
         >
           {title}
         </td>
       </tr>
       {lines.map((l) => (
-        <tr key={l.code} className="border-b border-border/60">
+        <tr
+          key={l.code}
+          className="border-b border-border/60 transition-colors duration-100 hover:bg-surface-hover/60"
+        >
           <td className="px-5 py-2.5">
             <span className="font-medium">{l.name}</span>
             <span className="ml-2 font-mono text-[11px] text-subtle-foreground">{l.code}</span>
@@ -401,13 +411,18 @@ function TotalRow({
   emphasis?: boolean
 }) {
   return (
-    <tr className={cn("border-t border-border", emphasis && "bg-primary-subtle")}>
+    <tr className={cn("border-t border-border/70", emphasis && "bg-primary-subtle/50")}>
       <td className={cn("px-5 py-3 font-semibold", emphasis && "text-primary")}>{label}</td>
       <td className="px-5 py-3 text-right tabular text-muted-foreground">
         {actual ? formatINR(actual) : "—"}
       </td>
-      <td className={cn("px-5 py-3 text-right tabular font-semibold", emphasis && "text-primary")}>
-        {formatINR(simulated)}
+      <td
+        className={cn(
+          "px-5 py-3 text-right tabular font-semibold",
+          emphasis && "text-base text-primary",
+        )}
+      >
+        {emphasis ? <NumberTicker value={formatINR(simulated)} /> : formatINR(simulated)}
       </td>
       <td
         className={cn(

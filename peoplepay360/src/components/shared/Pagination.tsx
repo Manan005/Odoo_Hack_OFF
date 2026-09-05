@@ -28,13 +28,14 @@ function PageButton({
       // clean URL rather than "?page=1".
       onClick={() => write({ page: to === 1 ? null : String(to) })}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-md border border-border",
+        "inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-surface",
+        "transition-[background-color,border-color,color,transform] duration-150 ease-out-quart",
         disabled
           ? "cursor-not-allowed text-subtle-foreground opacity-50"
-          : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+          : "text-muted-foreground hover:border-border-strong hover:bg-surface-hover hover:text-foreground active:scale-95",
       )}
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="h-3.5 w-3.5" aria-hidden />
     </button>
   )
 }

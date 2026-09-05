@@ -12,6 +12,7 @@ import {
   validatePayrun,
 } from "@/actions/payrun.actions"
 import { Button } from "@/components/ui/button"
+import { useConfirm } from "@/components/ui/confirm-dialog"
 
 /**
  * Draft → Compute → Validate → Mark Paid → Send. Each button is disabled
@@ -29,6 +30,7 @@ export function PayrunActionBar({
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const { confirm, dialog } = useConfirm()
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
     startTransition(async () => {
@@ -80,15 +82,33 @@ export function PayrunActionBar({
       router.refresh()
     })
 
-  const confirmThen = (message: string, fn: () => void) => () => {
-    if (confirm(message)) fn()
+  const onMarkPaid = async () => {
+    const ok = await confirm({
+      title: "Mark this payrun as paid?",
+      description:
+        "It becomes a historical record and can no longer be recomputed. Payslips can then be emailed to employees.",
+      confirmLabel: "Mark paid",
+      tone: "success",
+    })
+    if (ok) run(() => markPayrunPaid(payrunId), "Payrun marked paid.")
+  }
+
+  const onSendConfirm = async () => {
+    const ok = await confirm({
+      title: "Email every payslip in this payrun?",
+      description: "Each employee receives their own payslip PDF at their work email address.",
+      confirmLabel: "Send payslips",
+    })
+    if (ok) onSend()
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {dialog}
+
       <Button disabled={pending || isPaid} loading={pending} loadingText="Computing…" onClick={onCompute}>
-        <Calculator className="h-4 w-4" />
-        COMPUTE
+        <Calculator className="h-4 w-4" aria-hidden />
+        Compute
       </Button>
 
       <Button
@@ -103,34 +123,28 @@ export function PayrunActionBar({
         }
         onClick={() => run(() => validatePayrun(payrunId), "Payrun validated.")}
       >
-        <BadgeCheck className="h-4 w-4" />
-        VALIDATE
+        <BadgeCheck className="h-4 w-4" aria-hidden />
+        Validate
       </Button>
 
       <Button
         variant="outline"
         disabled={pending || status !== PayrunStatus.VALIDATED}
         title={status !== PayrunStatus.VALIDATED ? "Validate the payrun first" : undefined}
-        onClick={confirmThen(
-          "Mark this payrun as paid? It becomes a historical record and can no longer be recomputed.",
-          () => run(() => markPayrunPaid(payrunId), "Payrun marked paid."),
-        )}
+        onClick={onMarkPaid}
       >
-        <Banknote className="h-4 w-4" />
-        MARK PAID
+        <Banknote className="h-4 w-4" aria-hidden />
+        Mark paid
       </Button>
 
       <Button
         variant="outline"
         disabled={pending || status !== PayrunStatus.PAID}
         title={status !== PayrunStatus.PAID ? "Mark the payrun paid first" : undefined}
-        onClick={confirmThen(
-          "Email every payslip in this payrun to its employee?",
-          onSend,
-        )}
+        onClick={onSendConfirm}
       >
-        <Send className="h-4 w-4" />
-        SEND PAYSLIPS
+        <Send className="h-4 w-4" aria-hidden />
+        Send payslips
       </Button>
     </div>
   )
