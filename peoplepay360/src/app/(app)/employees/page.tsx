@@ -1,0 +1,144 @@
+import { Role } from "@prisma/client"
+import { Users } from "lucide-react"
+import { redirect } from "next/navigation"
+import { EmployeeKanban } from "@/components/employees/EmployeeKanban"
+import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
+import { EmptyState } from "@/components/shared/EmptyState"
+import { ListToolbar } from "@/components/shared/ListToolbar"
+import { PageHeader } from "@/components/shared/PageHeader"
+import { ActiveBadge } from "@/components/shared/StatusBadge"
+import { pageAllows, pageUser } from "@/lib/auth-guard"
+import { db } from "@/lib/db"
+
+export const metadata = { title: "Employees — PeoplePay360" }
+
+type Row = {
+  id: string
+  firstName: string
+  lastName: string
+  workEmail: string | null
+  active: boolean
+  department: { name: string } | null
+  jobPosition: { name: string } | null
+}
+
+const columns: Column<Row>[] = [
+  { key: "employee", header: "Employee", render: (r) => `${r.firstName} ${r.lastName}` },
+  {
+    key: "workEmail",
+    header: "Work Email",
+    render: (r) => r.workEmail ?? <span className="text-muted-foreground">—</span>,
+  },
+  {
+    key: "position",
+    header: "Job Position",
+    render: (r) => r.jobPosition?.name ?? <span className="text-muted-foreground">—</span>,
+  },
+  {
+    key: "department",
+    header: "Department",
+    render: (r) => r.department?.name ?? <span className="text-muted-foreground">—</span>,
+  },
+  { key: "status", header: "Status", render: (r) => <ActiveBadge active={r.active} /> },
+]
+
+const initialsOf = (first: string, last: string) =>
+  `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase()
+
+export default async function EmployeesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; q?: string; departmentId?: string }>
+}) {
+  // EMPLOYEE-rank users have no business on the full roster (AC-M1-4) —
+  // send them to their own record instead.
+  const hr = await pageAllows(Role.HR_MANAGER)
+  if (!hr) {
+    const me = await pageUser()
+    redirect(me?.employeeId ? `/employees/${me.employeeId}` : "/login")
+  }
+
+  const { view = "kanban", q, departmentId } = await searchParams
+
+  const employees = await db.employee.findMany({
+    where: {
+      companyId: hr.companyId,
+      ...(departmentId ? { departmentId } : {}),
+      ...(q
+        ? {
+            OR: [
+              { firstName: { contains: q, mode: "insensitive" as const } },
+              { lastName: { contains: q, mode: "insensitive" as const } },
+              { workEmail: { contains: q, mode: "insensitive" as const } },
+              { employeeCode: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      workEmail: true,
+      active: true,
+      department: { select: { name: true } },
+      jobPosition: { select: { name: true } },
+    },
+    orderBy: [{ active: "desc" }, { firstName: "asc" }],
+  })
+
+  const empty = (
+    <EmptyState
+      icon={Users}
+      title="No employees match"
+      description="The employee record is the hub every contract, attendance entry and payslip hangs off."
+    />
+  )
+
+  return (
+    <>
+      <PageHeader
+        title="Employees"
+        subtitle={
+          view === "list"
+            ? "List view for sort, filter and bulk scanning"
+            : "Default view: Kanban"
+        }
+      />
+
+      <ListToolbar
+        newHref="/employees/new"
+        searchPlaceholder="Search employees…"
+        views={[
+          { key: "kanban", label: "Kanban" },
+          { key: "list", label: "List" },
+        ]}
+      />
+
+      {view === "list" ? (
+        <DataTable
+          columns={columns}
+          rows={employees}
+          rowKey={(r) => r.id}
+          rowHref={(r) => `/employees/${r.id}`}
+          empty={empty}
+          footer={<RowCount shown={employees.length} total={employees.length} />}
+        />
+      ) : employees.length === 0 ? (
+        <div className="rounded-b-lg border border-border bg-surface shadow-card">{empty}</div>
+      ) : (
+        <EmployeeKanban
+          employees={employees.map((e) => ({
+            id: e.id,
+            name: `${e.firstName} ${e.lastName}`,
+            initials: initialsOf(e.firstName, e.lastName),
+            position: e.jobPosition?.name ?? null,
+            department: e.department?.name ?? null,
+            workEmail: e.workEmail,
+            active: e.active,
+          }))}
+        />
+      )}
+    </>
+  )
+}
