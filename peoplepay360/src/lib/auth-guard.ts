@@ -80,6 +80,24 @@ export async function requireSelfOrRole(
   throw new AuthError("FORBIDDEN", "You can only access your own records.")
 }
 
+// ─────────────────────────── Page guards ───────────────────────────
+// Server Components must not throw for an authorization failure: Next replaces
+// a thrown server error with an opaque digest, so error.tsx cannot tell a 403
+// from a crash and the user gets a raw 500. Pages ask instead, and render
+// <Forbidden /> themselves. Actions keep using the throwing guards above —
+// they are the real security boundary (rules.md §4).
+
+export async function pageUser(): Promise<SessionUser | null> {
+  const session = await auth()
+  return (session?.user as SessionUser | undefined) ?? null
+}
+
+export async function pageAllows(min: Role): Promise<SessionUser | null> {
+  const user = await pageUser()
+  if (!user) return null
+  return rankOf(user.roles) >= ROLE_RANK[min] ? user : null
+}
+
 // ───────────────────────── Capability helpers ─────────────────────────
 
 export const isAdmin = (u: SessionUser): boolean => u.roles.includes(Role.ADMIN)
