@@ -6,13 +6,16 @@
  * Later phases extend this file (contracts, attendance, time off, payroll).
  */
 import {
+  ApprovalMode,
   AttendanceStatus,
   CalendarType,
   ContractStatus,
   EmployeeType,
   Gender,
   PrismaClient,
+  RequestStatus,
   Role,
+  TimeOffUnit,
   Weekday,
 } from "@prisma/client"
 import bcrypt from "bcryptjs"
@@ -543,6 +546,212 @@ async function main() {
     console.log(
       `  attendance: ${rows.length} rows (${missingCheckOuts} missing check-outs, ${manualEdits} manual edits)`,
     )
+  }
+
+  // ─────────────────────────── Time Off ───────────────────────────
+  const TYPES = [
+    {
+      name: "Paid Time Off",
+      unit: TimeOffUnit.DAYS,
+      requiresAllocation: true,
+      approvalMode: ApprovalMode.MANAGER,
+      isPaid: true,
+      displayColor: "blue",
+      workEntryLabel: "Leave Work Entry",
+      description: "Standard annual leave. Balance comes from approved allocations.",
+    },
+    {
+      name: "Sick Leave",
+      unit: TimeOffUnit.DAYS,
+      requiresAllocation: false,
+      approvalMode: ApprovalMode.MANAGER,
+      isPaid: true,
+      displayColor: "red",
+      workEntryLabel: "Sick Work Entry",
+      description: "Granted without an allocation; no balance is consumed.",
+    },
+    {
+      name: "Comp Off",
+      unit: TimeOffUnit.HOURS,
+      requiresAllocation: true,
+      approvalMode: ApprovalMode.HR_OFFICER,
+      isPaid: true,
+      displayColor: "green",
+      workEntryLabel: "Comp Off Entry",
+      description: "Earned against overtime worked. Requires an approved allocation.",
+    },
+    {
+      name: "Unpaid Leave",
+      unit: TimeOffUnit.DAYS,
+      requiresAllocation: false,
+      approvalMode: ApprovalMode.BOTH,
+      isPaid: false,
+      displayColor: "amber",
+      workEntryLabel: "Unpaid Work Entry",
+      description: "Drives the unpaid-leave deduction when payroll is computed.",
+    },
+  ]
+
+  const typeIds = new Map<string, string>()
+  for (const t of TYPES) {
+    const row = await db.timeOffType.upsert({
+      where: { companyId_name: { companyId: company.id, name: t.name } },
+      update: {
+        unit: t.unit,
+        requiresAllocation: t.requiresAllocation,
+        approvalMode: t.approvalMode,
+        isPaid: t.isPaid,
+        displayColor: t.displayColor,
+        workEntryLabel: t.workEntryLabel,
+        description: t.description,
+        active: true,
+      },
+      create: { ...t, active: true, companyId: company.id },
+    })
+    typeIds.set(t.name, row.id)
+  }
+  console.log(`  time off types: ${typeIds.size}`)
+
+  // Allocations are the grant side; requests consume them. Seeded together so
+  // `taken` always equals the sum of the approved requests linked to it.
+  const existingAllocations = await db.timeOffAllocation.count()
+  if (existingAllocations > 0) {
+    console.log(`  allocations: ${existingAllocations} already present — skipping`)
+  } else {
+    const ptoId = typeIds.get("Paid Time Off")!
+    const compOffId = typeIds.get("Comp Off")!
+    const sickId = typeIds.get("Sick Leave")!
+
+    const allocationIds = new Map<string, string>()
+    for (const spec of EMPLOYEES) {
+      const employeeId = employeeIds.get(spec.code)!
+      const alloc = await db.timeOffAllocation.create({
+        data: {
+          employeeId,
+          typeId: ptoId,
+          allocated: 20,
+          taken: 0,
+          status: RequestStatus.APPROVED,
+          validityLabel: "2026 Annual Balance",
+          description: "Annual leave balance granted at start of policy year.",
+          approverId: employeeIds.get("EMP/0002")!,
+        },
+        select: { id: true },
+      })
+      allocationIds.set(spec.code, alloc.id)
+    }
+
+    // A couple of Comp Off allocations, one still awaiting approval so the
+    // list shows the full lifecycle.
+    await db.timeOffAllocation.create({
+      data: {
+        employeeId: employeeIds.get("EMP/0003")!,
+        typeId: compOffId,
+        allocated: 16,
+        taken: 0,
+        status: RequestStatus.APPROVED,
+        validityLabel: "Overtime bank 2026",
+        approverId: employeeIds.get("EMP/0002")!,
+      },
+    })
+    await db.timeOffAllocation.create({
+      data: {
+        employeeId: employeeIds.get("EMP/0004")!,
+        typeId: compOffId,
+        allocated: 8,
+        taken: 0,
+        status: RequestStatus.TO_APPROVE,
+        validityLabel: "Overtime bank 2026",
+      },
+    })
+    console.log(`  allocations: ${allocationIds.size + 2}`)
+
+    // Requests. Approved ones increment their allocation's `taken` so the
+    // ledger balances exactly — the same invariant approveRequest maintains.
+    type ReqSpec = {
+      code: string
+      typeId: string
+      start: [number, number, number]
+      end: [number, number, number]
+      status: RequestStatus
+      reason: string
+      usesAllocation: boolean
+    }
+
+    const REQUESTS: ReqSpec[] = [
+      { code: "EMP/0001", typeId: ptoId, start: [2026, 5, 15], end: [2026, 5, 19], status: RequestStatus.APPROVED, reason: "Family vacation", usesAllocation: true },
+      { code: "EMP/0001", typeId: ptoId, start: [2026, 7, 10], end: [2026, 7, 12], status: RequestStatus.APPROVED, reason: "Personal", usesAllocation: true },
+      { code: "EMP/0001", typeId: sickId, start: [2026, 6, 21], end: [2026, 6, 21], status: RequestStatus.APPROVED, reason: "Fever", usesAllocation: false },
+      { code: "EMP/0002", typeId: ptoId, start: [2026, 6, 6], end: [2026, 6, 10], status: RequestStatus.APPROVED, reason: "Annual leave", usesAllocation: true },
+      { code: "EMP/0003", typeId: ptoId, start: [2026, 4, 18], end: [2026, 4, 22], status: RequestStatus.APPROVED, reason: "Wedding", usesAllocation: true },
+      { code: "EMP/0004", typeId: sickId, start: [2026, 7, 3], end: [2026, 7, 4], status: RequestStatus.APPROVED, reason: "Flu", usesAllocation: false },
+      { code: "EMP/0005", typeId: ptoId, start: [2026, 8, 14], end: [2026, 8, 18], status: RequestStatus.TO_APPROVE, reason: "Trip", usesAllocation: true },
+      { code: "EMP/0006", typeId: ptoId, start: [2026, 8, 21], end: [2026, 8, 22], status: RequestStatus.TO_APPROVE, reason: "Personal", usesAllocation: true },
+      { code: "EMP/0008", typeId: ptoId, start: [2026, 5, 1], end: [2026, 5, 5], status: RequestStatus.APPROVED, reason: "Holiday", usesAllocation: true },
+      { code: "EMP/0009", typeId: ptoId, start: [2026, 7, 20], end: [2026, 7, 24], status: RequestStatus.APPROVED, reason: "Travel", usesAllocation: true },
+      { code: "EMP/0011", typeId: ptoId, start: [2026, 6, 15], end: [2026, 6, 17], status: RequestStatus.REFUSED, reason: "Clashes with quarter close", usesAllocation: true },
+      { code: "EMP/0012", typeId: ptoId, start: [2026, 8, 3], end: [2026, 8, 7], status: RequestStatus.APPROVED, reason: "Family", usesAllocation: true },
+      { code: "EMP/0014", typeId: sickId, start: [2026, 8, 11], end: [2026, 8, 11], status: RequestStatus.TO_APPROVE, reason: "Migraine", usesAllocation: false },
+      { code: "EMP/0015", typeId: ptoId, start: [2026, 4, 6], end: [2026, 4, 8], status: RequestStatus.APPROVED, reason: "Personal", usesAllocation: true },
+      { code: "EMP/0018", typeId: ptoId, start: [2026, 7, 27], end: [2026, 7, 31], status: RequestStatus.APPROVED, reason: "Vacation", usesAllocation: true },
+    ]
+
+    const scheduleDaysByEmployee = new Map<string, Weekday[]>()
+    for (const spec of EMPLOYEES) {
+      const found = SCHEDULES.find((s) => s.name === spec.schedule)
+      scheduleDaysByEmployee.set(spec.code, found ? found.lines.map((l) => l.day) : [])
+    }
+
+    let approvedCount = 0
+    for (const r of REQUESTS) {
+      const employeeId = employeeIds.get(r.code)!
+      const start = utc(...r.start)
+      const end = utc(...r.end)
+      const days = scheduleDaysByEmployee.get(r.code) ?? []
+
+      // BR-T4 — count only scheduled working days.
+      let duration = 0
+      for (const d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        const wd = [
+          Weekday.SUNDAY,
+          Weekday.MONDAY,
+          Weekday.TUESDAY,
+          Weekday.WEDNESDAY,
+          Weekday.THURSDAY,
+          Weekday.FRIDAY,
+          Weekday.SATURDAY,
+        ][d.getUTCDay()]
+        if (days.includes(wd)) duration++
+      }
+      if (duration === 0) continue
+
+      const allocationId = r.usesAllocation ? allocationIds.get(r.code) : null
+
+      await db.timeOffRequest.create({
+        data: {
+          employeeId,
+          typeId: r.typeId,
+          startDate: start,
+          endDate: end,
+          duration,
+          status: r.status,
+          reason: r.reason,
+          allocationId: allocationId ?? null,
+          approverId:
+            r.status === RequestStatus.TO_APPROVE ? null : employeeIds.get("EMP/0002")!,
+        },
+      })
+
+      // BR-T2 — only an approved request consumes balance.
+      if (r.status === RequestStatus.APPROVED && allocationId) {
+        await db.timeOffAllocation.update({
+          where: { id: allocationId },
+          data: { taken: { increment: duration } },
+        })
+        approvedCount++
+      }
+    }
+    console.log(`  time off requests: ${REQUESTS.length} (${approvedCount} consuming balance)`)
   }
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10)
