@@ -7,6 +7,7 @@
  */
 import {
   CalendarType,
+  ContractStatus,
   EmployeeType,
   Gender,
   PrismaClient,
@@ -19,6 +20,14 @@ const db = new PrismaClient()
 
 const COMPANY_NAME = "OXP Pvt Ltd"
 const DEMO_PASSWORD = "demo1234"
+
+/**
+ * Calendar dates must be stored as UTC midnight. `new Date(2026, 0, 1)` is
+ * *local* midnight, which in IST (UTC+5:30) persists as 2025-12-31T18:30Z —
+ * every date silently shifts back a day and payroll period boundaries break.
+ */
+const utc = (year: number, month: number, day: number) =>
+  new Date(Date.UTC(year, month, day))
 
 // ─────────────────────────── Schedule patterns ───────────────────────────
 
@@ -248,11 +257,11 @@ async function main() {
         workPhone: `+91 98${String(76543210 + i).padStart(8, "0")}`,
         employeeType: spec.type,
         workLocation: "Mumbai",
-        joiningDate: new Date(2024, i % 12, 1 + (i % 27)),
+        joiningDate: utc(2024, i % 12, 1 + (i % 27)),
         active: true,
         avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
         personalEmail: `${spec.firstName.toLowerCase()}.${spec.lastName.toLowerCase()}@gmail.com`,
-        dateOfBirth: new Date(1990 + (i % 12), i % 12, 1 + (i % 27)),
+        dateOfBirth: utc(1990 + (i % 12), i % 12, 1 + (i % 27)),
         gender: i % 2 === 0 ? Gender.MALE : Gender.FEMALE,
         address: `${100 + i}, Sector ${1 + (i % 9)}, Mumbai`,
         emergencyContactName: "Emergency Contact",
@@ -294,6 +303,87 @@ async function main() {
       data: { managerId: employeeIds.get(code)! },
     })
   }
+
+  // ─────────────────────────── Contracts ───────────────────────────
+  // Every active employee gets one open-ended RUNNING contract from Jan 2026.
+  // Aarav additionally carries an EXPIRED 2025 contract at a lower wage — that
+  // pair is what proves BR-C2 (period-applicable resolution) in the demo.
+  const WAGE_BY_POSITION: Record<string, number> = {
+    "Engineering Manager": 145000,
+    Developer: 95000,
+    "Payroll Specialist": 85000,
+    Accountant: 78000,
+    "HR Officer": 95000,
+    Recruiter: 72000,
+    "Sales Executive": 88000,
+    "Support Engineer": 68000,
+  }
+
+  const expectedRefs: string[] = []
+  for (const [i, spec] of EMPLOYEES.entries()) {
+    const employeeId = employeeIds.get(spec.code)!
+    const wage = WAGE_BY_POSITION[spec.position] ?? 70000
+    // Aarav's reference is pinned to the one the wireframe shows, so the demo
+    // script and the mockup line up.
+    const reference =
+      spec.code === "EMP/0001"
+        ? "CON/2026/0042"
+        : `CON/2026/${String(i + 1).padStart(4, "0")}`
+    expectedRefs.push(reference)
+
+    await db.contract.upsert({
+      where: { reference },
+      // startDate/endDate are re-asserted so an existing row created before the
+      // UTC fix is corrected rather than left drifted.
+      update: {
+        employeeId,
+        wage,
+        status: ContractStatus.RUNNING,
+        startDate: utc(2026, 0, 1),
+        endDate: null,
+      },
+      create: {
+        reference,
+        employeeId,
+        startDate: utc(2026, 0, 1),
+        endDate: null,
+        wage,
+        status: ContractStatus.RUNNING,
+        departmentId: departments.get(spec.department)!,
+        jobPositionId: positions.get(spec.position)!,
+        workingScheduleId: schedules.get(spec.schedule)!,
+        notes: "Standard employment contract.",
+      },
+    })
+  }
+
+  // Aarav's prior contract — Jul–Dec 2025 at a lower wage. This pair is what
+  // proves BR-C2: a Nov-2025 payrun must pick this, not the 2026 contract.
+  expectedRefs.push("CON/2025/0018")
+  await db.contract.upsert({
+    where: { reference: "CON/2025/0018" },
+    update: { startDate: utc(2025, 6, 1), endDate: utc(2025, 11, 31), wage: 78000 },
+    create: {
+      reference: "CON/2025/0018",
+      employeeId: employeeIds.get("EMP/0001")!,
+      startDate: utc(2025, 6, 1),
+      endDate: utc(2025, 11, 31),
+      wage: 78000,
+      status: ContractStatus.RUNNING,
+      departmentId: departments.get("Finance")!,
+      jobPositionId: positions.get("Payroll Specialist")!,
+      workingScheduleId: schedules.get("40 Hours / Week")!,
+      notes: "Prior contract — superseded from 01-Jan-2026.",
+    },
+  })
+
+  // Self-healing: drop seeded contracts that are no longer expected, so a
+  // renamed reference cannot leave an orphan behind and violate BR-C1.
+  const removed = await db.contract.deleteMany({
+    where: { reference: { startsWith: "CON/" }, NOT: { reference: { in: expectedRefs } } },
+  })
+  if (removed.count > 0) console.log(`  removed ${removed.count} stale contract(s)`)
+  console.log(`  contracts: ${expectedRefs.length}`)
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10)
   for (const u of USERS) {
