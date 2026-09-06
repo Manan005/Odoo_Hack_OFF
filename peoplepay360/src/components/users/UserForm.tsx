@@ -1,14 +1,16 @@
 "use client"
 
 import { Role } from "@prisma/client"
+import { Check } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { createUser, updateUser } from "@/actions/user.actions"
 import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
-import { Checkbox, Field, Input, Label, Select } from "@/components/ui/field"
+import { Checkbox, Field, Input, ReadOnlyValue, Select } from "@/components/ui/field"
 import { ROLE_LABEL } from "@/lib/auth-guard"
+import { cn } from "@/lib/utils"
 
 const ROLE_ORDER: Role[] = [
   Role.EMPLOYEE,
@@ -74,9 +76,9 @@ export function UserForm({
   const submit = () => {
     setErrors({})
     startTransition(async () => {
-      const result = editing
+      const result = user
         ? await updateUser({
-            userId: user!.id,
+            userId: user.id,
             email,
             password: password || undefined,
             roles,
@@ -97,17 +99,15 @@ export function UserForm({
   }
 
   const available = employees.filter((e) => !e.hasUser)
+  // Hints for the chosen roles, in rank order.
+  const chosen = ROLE_ORDER.filter((r) => roles.includes(r))
 
   return (
     <div className="space-y-5">
       <FormSection title={editing ? "User account" : "Create user"}>
         <FieldGrid>
-          {editing ? (
-            <Field label="Employee">
-              <div className="flex h-9 items-center rounded-md bg-surface-muted px-3 text-sm">
-                {user!.employeeName}
-              </div>
-            </Field>
+          {user ? (
+            <ReadOnlyValue label="Employee" value={user.employeeName} hint="linked" />
           ) : (
             <Field
               label="Employee"
@@ -181,39 +181,72 @@ export function UserForm({
         </FieldGrid>
       </FormSection>
 
-      <FormSection title="Roles">
+      <FormSection
+        title="Roles"
+        description="A user may hold several roles; the highest one decides what they can reach."
+      >
         {isSelf && (
-          <p className="mb-3 rounded-md bg-warning-subtle px-3 py-2 text-xs text-warning">
+          <p className="mb-3 rounded-lg bg-warning-subtle px-3 py-2 text-xs text-warning ring-1 ring-inset ring-warning/25">
             You are editing your own account. Roles are locked — ask another administrator to
             change them.
           </p>
         )}
-        {errors.roles && <p className="mb-3 text-xs text-danger">{errors.roles}</p>}
+        {errors.roles && (
+          <p role="alert" className="mb-3 animate-fade-in text-xs text-danger">
+            {errors.roles}
+          </p>
+        )}
 
-        <div className="space-y-2">
-          {ROLE_ORDER.map((role) => (
-            <label
-              key={role}
-              className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 hover:bg-surface-hover"
-            >
-              <Checkbox
-                className="mt-0.5"
-                checked={roles.includes(role)}
+        {/* Pill group: the same Role values as before, toggled rather than ticked. */}
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Roles">
+          {ROLE_ORDER.map((role) => {
+            const on = roles.includes(role)
+            return (
+              <button
+                key={role}
+                type="button"
+                aria-pressed={on}
                 disabled={isSelf}
-                onChange={() => toggleRole(role)}
-              />
-              <span>
-                <span className="block text-sm font-medium">{ROLE_LABEL[role]}</span>
-                <span className="block text-xs text-muted-foreground">{ROLE_HINT[role]}</span>
-              </span>
-            </label>
-          ))}
+                onClick={() => toggleRole(role)}
+                className={cn(
+                  "day-cell inline-flex h-9 items-center gap-1.5 rounded-lg pl-2.5 pr-3 text-sm font-medium ring-1 ring-inset",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                  "disabled:cursor-not-allowed disabled:opacity-60",
+                  on
+                    ? "bg-primary text-primary-fg ring-primary shadow-primary"
+                    : "bg-surface text-muted-foreground ring-border/80 hover:bg-surface-hover hover:text-foreground",
+                )}
+              >
+                <Check
+                  aria-hidden
+                  className={cn(
+                    "h-3.5 w-3.5 transition-[transform,opacity] duration-200 ease-spring",
+                    on ? "scale-100 opacity-100" : "scale-50 opacity-30",
+                  )}
+                />
+                {ROLE_LABEL[role]}
+              </button>
+            )
+          })}
         </div>
+
+        <ul className="mt-4 space-y-1.5">
+          {chosen.length === 0 && (
+            <li className="text-xs text-warning">Pick at least one role.</li>
+          )}
+          {chosen.map((r) => (
+            <li key={r} className="animate-fade-in text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{ROLE_LABEL[r]}</span>
+              <span className="text-subtle-foreground"> — </span>
+              {ROLE_HINT[r]}
+            </li>
+          ))}
+        </ul>
       </FormSection>
 
       <div className="flex items-center gap-2">
         <Button onClick={submit} loading={pending} loadingText="Saving…">
-          {editing ? "Save Changes" : "Create User"}
+          {editing ? "Save changes" : "Create user"}
         </Button>
         <Button variant="ghost" onClick={() => router.push("/users")} disabled={pending}>
           Cancel

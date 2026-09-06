@@ -1,13 +1,20 @@
 "use client"
 
 import { Monitor, Moon, Sun } from "lucide-react"
-import { useTheme, type Theme } from "@/components/theme/ThemeProvider"
+import { useTheme, type Theme, type ThemeOrigin } from "@/components/theme/ThemeProvider"
 import { cn } from "@/lib/utils"
+
+/** Centre of the control that was activated — works for keyboard too. */
+const originOf = (el: HTMLElement): ThemeOrigin => {
+  const r = el.getBoundingClientRect()
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+}
 
 /**
  * One-click light/dark flip. The icons morph with CSS keyed off
  * `[data-theme]`, so the markup is identical on server and client and there
- * is nothing to hydrate wrongly.
+ * is nothing to hydrate wrongly. The new theme is revealed in a circle that
+ * grows from this button.
  */
 export function ThemeToggle({ className }: { className?: string }) {
   const { resolved, setTheme } = useTheme()
@@ -16,21 +23,21 @@ export function ThemeToggle({ className }: { className?: string }) {
       type="button"
       aria-label="Toggle dark mode"
       aria-pressed={resolved === "dark"}
-      onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
+      onClick={(e) => setTheme(resolved === "dark" ? "light" : "dark", originOf(e.currentTarget))}
       className={cn(
         "relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground",
-        "transition-[background-color,color,transform] duration-150 ease-out-quart",
+        "transition-[background-color,color,transform,scale] duration-150 ease-out-quart",
         "hover:bg-surface-hover hover:text-foreground active:scale-95",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
         className,
       )}
     >
       <Sun
-        className="h-4 w-4 rotate-0 scale-100 transition-[transform,opacity] duration-300 ease-spring dark:-rotate-90 dark:scale-0 dark:opacity-0"
+        className="h-4 w-4 rotate-0 scale-100 transition-[transform,rotate,scale,opacity] duration-300 ease-spring dark:-rotate-90 dark:scale-0 dark:opacity-0"
         aria-hidden
       />
       <Moon
-        className="absolute h-4 w-4 rotate-90 scale-0 opacity-0 transition-[transform,opacity] duration-300 ease-spring dark:rotate-0 dark:scale-100 dark:opacity-100"
+        className="absolute h-4 w-4 rotate-90 scale-0 opacity-0 transition-[transform,rotate,scale,opacity] duration-300 ease-spring dark:rotate-0 dark:scale-100 dark:opacity-100"
         aria-hidden
       />
     </button>
@@ -67,7 +74,7 @@ export function AppearanceSegment() {
             type="button"
             role="radio"
             aria-checked={active}
-            onClick={() => setTheme(value)}
+            onClick={(e) => setTheme(value, originOf(e.currentTarget))}
             className={cn(
               "relative z-10 inline-flex h-7 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors duration-150",
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",

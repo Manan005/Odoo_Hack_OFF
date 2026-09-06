@@ -1,0 +1,387 @@
+/* primitives package styles — imported by src/app/globals.css. Plain classes go in @layer components; classes that need variants (hover:, md:) use @utility; @keyframes at top level. */
+
+/*
+ * Every rule here animates transform / opacity / box-shadow / stroke-dashoffset
+ * only, and the global reduced-motion kill switch in globals.css collapses
+ * all of it. Durations follow ui-redesign.md §2.4: things seen 100× a day
+ * (press, focus, hover) sit at 120–200 ms; once-per-page moments (title
+ * reveal, ledger draw) may take 500–1200 ms.
+ */
+
+/* ── Keyframes ──────────────────────────────────────────────────────── */
+
+/* Loader bars: three stripes breathing in sequence (the brand mark thinking). */
+@keyframes btn-bars {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* A field refusing bad input — one short shake, 380 ms. */
+@keyframes field-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+/* Hold-to-confirm progress fill. Linear on purpose: progress must be legible. */
+@keyframes hold-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes dialog-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Tab panel crossfade — shorter than the page-level fade-up. */
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Segmented thumb lands with a slight squash. */
+@keyframes seg-squash {
+  from {
+    transform: scaleX(1.04);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Title rising out of a clipped line box. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(110%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rail-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Line-art drawing itself: every path has pathLength="1". */
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* A dashed ring settling: the dashes travel half a turn while fading in. */
+@keyframes dash-in {
+  from {
+    opacity: 0;
+    stroke-dashoffset: 0.5;
+  }
+  to {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* An ink stamp landing on the ledger. */
+@keyframes stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.3) rotate(-5deg);
+  }
+  60% {
+    transform: scale(0.96) rotate(0.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes stamp-ring {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+/* ── Components ─────────────────────────────────────────────────────── */
+
+@layer components {
+  /*
+   * Button press glow. A radial highlight sits at the centre while the
+   * pointer is down and releases outward on pointer-up — energy leaving the
+   * button. `::before` because `.btn-sheen` already owns `::after`.
+   * Transitions, not keyframes, so a 60 ms click is never cut short.
+   */
+  .btn-press {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .btn-press::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle at center,
+      color-mix(in oklch, currentColor 22%, transparent) 0%,
+      transparent 65%
+    );
+    transform: scale(2.4);
+    opacity: 0;
+    transition:
+      transform 0.5s var(--ease-out-quart),
+      opacity 0.5s var(--ease-out-quart);
+  }
+  .btn-press:active::before {
+    transform: scale(0.45);
+    opacity: 1;
+    transition-duration: 0s;
+  }
+
+  /*
+   * Loading crossfade. Both faces share one grid cell so the button is as
+   * wide as the wider label and nothing around it shifts when it goes busy.
+   */
+  .btn-face {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    transition:
+      opacity 0.15s var(--ease-out-quart),
+      transform 0.15s var(--ease-out-quart);
+  }
+  .btn-face[data-busy] {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  [data-loading] > .btn-face[data-idle] {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  [data-loading] > .btn-face[data-busy] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .btn-bars {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 0.9em;
+  }
+  .btn-bars > span {
+    display: block;
+    width: 3px;
+    height: 100%;
+    border-radius: 1px;
+    background: currentColor;
+    transform-origin: center;
+    animation: btn-bars 0.9s var(--ease-out-quart) infinite;
+  }
+  .btn-bars > span:nth-child(2) {
+    animation-delay: 0.12s;
+  }
+  .btn-bars > span:nth-child(3) {
+    animation-delay: 0.24s;
+  }
+
+  /* Icon-only hook: a Plus icon turns a quarter on hover — "this opens". */
+  .icon-spin-hover svg {
+    transition: transform 0.3s var(--ease-spring);
+  }
+  .icon-spin-hover:hover svg {
+    transform: rotate(90deg);
+  }
+
+  /*
+   * Form controls. Border colours stay Tailwind utilities (utilities win the
+   * cascade); the shadow choreography lives here so the halo, the inset
+   * highlight and the resting inner shadow are one transition.
+   */
+  .control {
+    box-shadow:
+      0 0 0 0 transparent,
+      inset 0 0 0 1px transparent,
+      inset 0 1px 2px 0 light-dark(color-mix(in oklch, var(--color-foreground) 5%, transparent), transparent);
+  }
+  .control:focus {
+    box-shadow:
+      0 0 0 3px color-mix(in oklch, var(--color-primary) 16%, transparent),
+      inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 40%, transparent),
+      inset 0 1px 2px 0 transparent;
+  }
+  .control[aria-invalid="true"] {
+    animation: field-shake 0.38s var(--ease-out-quart);
+  }
+  .control[aria-invalid="true"]:focus {
+    box-shadow:
+      0 0 0 3px color-mix(in oklch, var(--color-danger) 16%, transparent),
+      inset 0 0 0 1px color-mix(in oklch, var(--color-danger) 40%, transparent),
+      inset 0 1px 2px 0 transparent;
+  }
+
+  /* Hold-to-confirm fill inside a Button (which is already `.btn-press`). */
+  .hold-fill {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transform-origin: left;
+    transform: scaleX(0);
+    background: color-mix(in oklch, currentColor 26%, transparent);
+    transition: transform 0.2s var(--ease-out-quart);
+  }
+  [data-holding] > .hold-fill {
+    animation: hold-fill 0.9s linear forwards;
+  }
+
+  /* Dialog exit — the mirror of `dialog-in` in globals.css. */
+  dialog[data-closing] {
+    animation: dialog-out 0.16s var(--ease-out-quart) forwards;
+  }
+  dialog[data-closing]::backdrop {
+    animation: fade-out 0.16s var(--ease-out-quart) forwards;
+  }
+
+  /* Apply to a tab's panel (keyed by tab) for a 200 ms crossfade. */
+  .tab-panel {
+    animation: panel-in 0.2s var(--ease-out-quart) both;
+  }
+
+  .seg-thumb {
+    animation: seg-squash 0.35s var(--ease-spring) both;
+  }
+
+  /* Page title entrance: the parent clips, the child rises. */
+  .rise-in {
+    animation: rise-in 0.5s var(--ease-out-quart) both;
+  }
+  .eyebrow-rail {
+    display: inline-block;
+    width: 14px;
+    height: 1px;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    background: currentColor;
+    opacity: 0.8;
+    transform-origin: left;
+    animation: rail-in 0.5s var(--ease-out-quart) both;
+  }
+
+  /* Empty-state ledger illustration draws itself once. */
+  .ledger-draw [data-draw] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 1.2s var(--ease-out-quart) both;
+    animation-delay: var(--d, 0ms);
+  }
+  .ledger-draw [data-dash] {
+    animation: dash-in 1s var(--ease-out-quart) 0.55s both;
+  }
+
+  /* Row link underline draws in from the left on row hover. */
+  .link-draw {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-repeat: no-repeat;
+    background-position: 0 calc(100% - 1px);
+    transition: background-size 0.25s var(--ease-out-quart);
+  }
+  .group:hover .link-draw,
+  a:focus-visible > .link-draw {
+    background-size: 100% 1px;
+  }
+
+  /* Status stamp — plays once per remount (key the badge by status). */
+  .badge-stamp {
+    position: relative;
+    animation: stamp 0.5s var(--ease-spring) both;
+  }
+  .badge-stamp::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 1px solid currentColor;
+    opacity: 0;
+    pointer-events: none;
+    animation: stamp-ring 0.6s var(--ease-out-quart) 0.25s both;
+  }
+
+  /*
+   * `.stagger > *` fills `transform: none` forever (fill-mode both), which
+   * would pin a tilting card flat. Let the cascade take the transform back
+   * once the entrance has played.
+   */
+  .stagger > .tilt {
+    animation-fill-mode: backwards;
+  }
+}
+
+/* ── Utilities (variant-capable) ────────────────────────────────────── */
+
+/* A text-line skeleton: rounded 4px, 0.9em tall — `<Skeleton text />`. */
+@utility skeleton-text {
+  height: 0.9em;
+  border-radius: 4px;
+}

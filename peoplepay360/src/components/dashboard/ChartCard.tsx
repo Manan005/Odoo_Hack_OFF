@@ -1,10 +1,23 @@
+import type { ReactNode } from "react"
 import { Surface } from "@/components/ui/surface"
+import { cn } from "@/lib/utils"
 
-function CardHeader({ title, source }: { title: string; source: string }) {
+function CardHeader({
+  title,
+  source,
+  aside,
+}: {
+  title: string
+  source: string
+  aside?: ReactNode
+}) {
   return (
-    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
-      <p className="text-[11px] text-subtle-foreground">Source · {source}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {aside}
+        <p className="text-[11px] text-subtle-foreground">Source · {source}</p>
+      </div>
     </div>
   )
 }
@@ -12,16 +25,24 @@ function CardHeader({ title, source }: { title: string; source: string }) {
 export function ChartCard({
   title,
   source,
+  aside,
+  className,
+  bodyClassName = "h-64",
   children,
 }: {
   title: string
   source: string
-  children: React.ReactNode
+  /** Chips or links that sit between the title and the source caption. */
+  aside?: ReactNode
+  className?: string
+  /** Height of the chart viewport; Recharts fills it. */
+  bodyClassName?: string
+  children: ReactNode
 }) {
   return (
-    <Surface padded className="min-w-0">
-      <CardHeader title={title} source={source} />
-      <div className="h-64">{children}</div>
+    <Surface padded className={cn("min-w-0", className)}>
+      <CardHeader title={title} source={source} aside={aside} />
+      <div className={bodyClassName}>{children}</div>
     </Surface>
   )
 }
@@ -29,15 +50,19 @@ export function ChartCard({
 export function PanelCard({
   title,
   source,
+  aside,
+  className,
   children,
 }: {
   title: string
   source: string
-  children: React.ReactNode
+  aside?: ReactNode
+  className?: string
+  children: ReactNode
 }) {
   return (
-    <Surface padded className="min-w-0">
-      <CardHeader title={title} source={source} />
+    <Surface padded className={cn("min-w-0", className)}>
+      <CardHeader title={title} source={source} aside={aside} />
       {children}
     </Surface>
   )

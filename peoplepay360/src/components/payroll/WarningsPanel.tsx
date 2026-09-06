@@ -19,13 +19,18 @@ const ICON = {
 } as const
 
 const TONE = {
-  BLOCKING: "bg-danger-subtle text-danger ring-danger/25",
-  WARNING: "bg-warning-subtle/60 text-warning ring-warning/20",
-  INFO: "bg-info-subtle/60 text-info ring-info/20",
+  BLOCKING: "warn-blocking bg-danger-subtle text-danger ring-danger/25",
+  WARNING: "warn-warning bg-warning-subtle/60 text-warning ring-warning/20",
+  INFO: "warn-info bg-info-subtle/60 text-info ring-info/20",
 } as const
 
 const RANK = { BLOCKING: 0, WARNING: 1, INFO: 2 } as const
 
+/**
+ * Warnings sorted blocking-first, each with a severity rail on its left edge.
+ * Blocking rows pulse once on entrance — they are the reason Validate is
+ * disabled, so they should announce themselves.
+ */
 export function WarningsPanel({ warnings }: { warnings: PayrollWarningRow[] }) {
   if (warnings.length === 0) {
     return (
@@ -65,12 +70,17 @@ export function WarningsPanel({ warnings }: { warnings: PayrollWarningRow[] }) {
             <li
               key={w.id}
               className={cn(
-                "flex items-start gap-2.5 rounded-lg px-3 py-2 text-xs ring-1 ring-inset",
+                "warn-row flex items-start gap-2.5 rounded-lg py-2 pl-4 pr-3 text-xs ring-1 ring-inset shadow-[inset_3px_0_0_0_var(--warn-tone)]",
                 TONE[w.severity],
               )}
             >
               <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="flex-1 text-foreground/90">{w.message}</span>
+              <span className="flex-1 text-foreground/90">
+                {w.message}
+                <span className="ml-2 font-mono text-[10.5px] uppercase tracking-wide text-subtle-foreground">
+                  {w.code}
+                </span>
+              </span>
               {w.payslipId && (
                 <Link
                   href={`/payroll/payslips/${w.payslipId}`}

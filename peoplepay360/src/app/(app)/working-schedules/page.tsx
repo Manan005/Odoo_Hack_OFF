@@ -1,5 +1,6 @@
 import { CalendarType, Role } from "@prisma/client"
 import { CalendarClock } from "lucide-react"
+import { RecordStats } from "@/components/employees/RecordStats"
 import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Forbidden } from "@/components/shared/Forbidden"
@@ -34,7 +35,7 @@ const columns: Column<Row>[] = [
     key: "hours",
     header: "Hours / Week",
     numeric: true,
-    render: (r) => formatWeeklyHours(Number(r.hoursPerWeek)),
+    render: (r) => <span className="font-medium">{formatWeeklyHours(Number(r.hoursPerWeek))}</span>,
   },
   { key: "company", header: "Company", render: (r) => r.company.name },
   { key: "status", header: "Status", render: (r) => <ActiveBadge active={r.active} /> },
@@ -67,9 +68,12 @@ export default async function WorkingSchedulesPage({
     orderBy: [{ active: "desc" }, { name: "asc" }],
   })
 
+  const activeCount = schedules.filter((s) => s.active).length
+
   return (
     <>
       <PageHeader
+        eyebrow="Time"
         title="Working Schedules"
         subtitle="Weekly hours are derived from the day pattern, never typed in."
       />
@@ -78,7 +82,14 @@ export default async function WorkingSchedulesPage({
         newHref="/working-schedules/new"
         newLabel="New schedule"
         searchPlaceholder="Search schedules…"
-      />
+      >
+        <RecordStats
+          stats={[
+            { label: "schedules", value: schedules.length, tone: "primary" },
+            { label: "active", value: activeCount, tone: "success" },
+          ]}
+        />
+      </ListToolbar>
 
       <DataTable
         columns={columns}

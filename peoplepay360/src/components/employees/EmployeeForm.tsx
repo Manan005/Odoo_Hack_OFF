@@ -1,14 +1,17 @@
 "use client"
 
 import { EmployeeType, Gender } from "@prisma/client"
+import { Check } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { createEmployee, updateEmployee } from "@/actions/employee.actions"
 import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { ActiveBadge } from "@/components/shared/StatusBadge"
 import { Button } from "@/components/ui/button"
-import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field"
+import { Checkbox, Field, Input, ReadOnlyValue, Select, Textarea } from "@/components/ui/field"
 import { UnderlineTabs } from "@/components/ui/tabs"
+import { cn } from "@/lib/utils"
 import { EMPLOYEE_TYPE_LABEL, GENDER_LABEL } from "@/lib/validation/employee"
 
 export interface Option {
@@ -46,6 +49,9 @@ export interface EmployeeFormValues {
 const TABS = ["Work Information", "Private Information", "HR Settings"] as const
 type Tab = (typeof TABS)[number]
 
+const initialsOf = (first: string, last: string) =>
+  `${first.trim()[0] ?? ""}${last.trim()[0] ?? ""}`.toUpperCase()
+
 export function EmployeeForm({
   initial,
   departments,
@@ -66,9 +72,15 @@ export function EmployeeForm({
   const [tab, setTab] = useState<Tab>("Work Information")
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [v, setV] = useState<EmployeeFormValues>(initial)
+  const [saved, setSaved] = useState(false)
 
   const set = <K extends keyof EmployeeFormValues>(key: K, value: EmployeeFormValues[K]) =>
     setV((prev) => ({ ...prev, [key]: value }))
+
+  // Presentation only — after a save the refreshed `initial` is what clears it.
+  const dirty = JSON.stringify(v) !== JSON.stringify(initial)
+  const initials = initialsOf(v.firstName, v.lastName)
+  const fullName = `${v.firstName} ${v.lastName}`.trim()
 
   const submit = () => {
     setErrors({})
@@ -87,6 +99,8 @@ export function EmployeeForm({
 
       if (result.ok) {
         toast.success(v.id ? "Employee updated." : "Employee created.")
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1800)
         router.push(`/employees/${result.data.id}`)
         router.refresh()
         return
@@ -103,285 +117,349 @@ export function EmployeeForm({
     <div className="space-y-5">
       <UnderlineTabs tabs={TABS} value={tab} onChange={setTab} />
 
-      {tab === "Work Information" && (
-        <FormSection key="work" className="animate-fade-in">
-          <FieldGrid>
-            <Field label="First Name" htmlFor="firstName" required error={errors.firstName}>
-              <Input
-                id="firstName"
-                value={v.firstName}
-                disabled={readOnly}
-                error={Boolean(errors.firstName)}
-                onChange={(e) => set("firstName", e.target.value)}
-              />
-            </Field>
-            <Field label="Last Name" htmlFor="lastName" required error={errors.lastName}>
-              <Input
-                id="lastName"
-                value={v.lastName}
-                disabled={readOnly}
-                error={Boolean(errors.lastName)}
-                onChange={(e) => set("lastName", e.target.value)}
-              />
-            </Field>
-            <Field label="Work Email" htmlFor="workEmail" error={errors.workEmail}>
-              <Input
-                id="workEmail"
-                type="email"
-                value={v.workEmail}
-                disabled={readOnly}
-                error={Boolean(errors.workEmail)}
-                onChange={(e) => set("workEmail", e.target.value)}
-              />
-            </Field>
-            <Field label="Work Phone" htmlFor="workPhone">
-              <Input
-                id="workPhone"
-                value={v.workPhone}
-                disabled={readOnly}
-                onChange={(e) => set("workPhone", e.target.value)}
-              />
-            </Field>
-            <Field label="Department" htmlFor="departmentId">
-              <Select
-                id="departmentId"
-                value={v.departmentId}
-                disabled={readOnly}
-                onChange={(e) => set("departmentId", e.target.value)}
+      {/* Re-keyed on the tab so each panel plays its own short entrance. */}
+      <div key={tab} className="panel-in space-y-5">
+        {tab === "Work Information" && (
+          <FormSection>
+            <div className="mb-5 flex flex-wrap items-center gap-3.5 rounded-xl bg-surface-muted/60 p-3 ring-1 ring-inset ring-border/60">
+              <span
+                key={initials}
+                className="settle flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-sm font-semibold text-primary ring-1 ring-primary/15"
               >
-                <option value="">—</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Job Position" htmlFor="jobPositionId">
-              <Select
-                id="jobPositionId"
-                value={v.jobPositionId}
-                disabled={readOnly}
-                onChange={(e) => set("jobPositionId", e.target.value)}
-              >
-                <option value="">—</option>
-                {positions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Manager" htmlFor="managerId" error={errors.managerId}>
-              <Select
-                id="managerId"
-                value={v.managerId}
-                disabled={readOnly}
-                error={Boolean(errors.managerId)}
-                onChange={(e) => set("managerId", e.target.value)}
-              >
-                <option value="">—</option>
-                {managers
-                  .filter((m) => m.id !== v.id)
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-            <Field label="Work Location" htmlFor="workLocation">
-              <Input
-                id="workLocation"
-                value={v.workLocation}
-                disabled={readOnly}
-                onChange={(e) => set("workLocation", e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Working Schedule"
-              htmlFor="workingScheduleId"
-              hint="Drives expected hours for attendance and payroll."
-            >
-              <Select
-                id="workingScheduleId"
-                value={v.workingScheduleId}
-                disabled={readOnly}
-                onChange={(e) => set("workingScheduleId", e.target.value)}
-              >
-                <option value="">—</option>
-                {schedules.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Employee Type" htmlFor="employeeType">
-              <Select
-                id="employeeType"
-                value={v.employeeType}
-                disabled={readOnly}
-                onChange={(e) => set("employeeType", e.target.value as EmployeeType)}
-              >
-                {Object.values(EmployeeType).map((t) => (
-                  <option key={t} value={t}>
-                    {EMPLOYEE_TYPE_LABEL[t]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Status">
-              <label className="flex h-9 items-center gap-2 text-sm">
-                <Checkbox
-                  checked={v.active}
-                  disabled={readOnly}
-                  onChange={(e) => set("active", e.target.checked)}
-                />
-                Active
-              </label>
-            </Field>
-          </FieldGrid>
-        </FormSection>
-      )}
+                {initials || "·"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-semibold tracking-tight">
+                  {fullName || <span className="text-muted-foreground">New employee</span>}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {EMPLOYEE_TYPE_LABEL[v.employeeType]}
+                  <span className="text-subtle-foreground"> · </span>
+                  {v.workEmail || "no work email yet"}
+                </p>
+              </div>
+              <ActiveBadge active={v.active} />
+            </div>
 
-      {tab === "Private Information" && (
-        <div key="private" className="stagger space-y-5">
-          <FormSection title="Personal">
             <FieldGrid>
-              <Field label="Personal Email" htmlFor="personalEmail" error={errors.personalEmail}>
+              <Field label="First Name" htmlFor="firstName" required error={errors.firstName}>
                 <Input
-                  id="personalEmail"
+                  id="firstName"
+                  value={v.firstName}
+                  disabled={readOnly}
+                  error={Boolean(errors.firstName)}
+                  onChange={(e) => set("firstName", e.target.value)}
+                />
+              </Field>
+              <Field label="Last Name" htmlFor="lastName" required error={errors.lastName}>
+                <Input
+                  id="lastName"
+                  value={v.lastName}
+                  disabled={readOnly}
+                  error={Boolean(errors.lastName)}
+                  onChange={(e) => set("lastName", e.target.value)}
+                />
+              </Field>
+              <Field label="Work Email" htmlFor="workEmail" error={errors.workEmail}>
+                <Input
+                  id="workEmail"
                   type="email"
-                  value={v.personalEmail}
+                  value={v.workEmail}
                   disabled={readOnly}
-                  error={Boolean(errors.personalEmail)}
-                  onChange={(e) => set("personalEmail", e.target.value)}
+                  error={Boolean(errors.workEmail)}
+                  onChange={(e) => set("workEmail", e.target.value)}
                 />
               </Field>
-              <Field label="Personal Phone" htmlFor="personalPhone">
+              <Field label="Work Phone" htmlFor="workPhone">
                 <Input
-                  id="personalPhone"
-                  value={v.personalPhone}
+                  id="workPhone"
+                  value={v.workPhone}
                   disabled={readOnly}
-                  onChange={(e) => set("personalPhone", e.target.value)}
+                  onChange={(e) => set("workPhone", e.target.value)}
                 />
               </Field>
-              <Field label="Date of Birth" htmlFor="dateOfBirth">
-                <Input
-                  id="dateOfBirth"
-                  type="date"
-                  value={v.dateOfBirth}
-                  disabled={readOnly}
-                  onChange={(e) => set("dateOfBirth", e.target.value)}
-                />
-              </Field>
-              <Field label="Gender" htmlFor="gender">
+              <Field label="Department" htmlFor="departmentId">
                 <Select
-                  id="gender"
-                  value={v.gender}
+                  id="departmentId"
+                  value={v.departmentId}
                   disabled={readOnly}
-                  onChange={(e) => set("gender", e.target.value as Gender | "")}
+                  onChange={(e) => set("departmentId", e.target.value)}
                 >
                   <option value="">—</option>
-                  {Object.values(Gender).map((g) => (
-                    <option key={g} value={g}>
-                      {GENDER_LABEL[g]}
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label="Address" htmlFor="address" className="md:col-span-2">
-                <Textarea
-                  id="address"
-                  rows={2}
-                  value={v.address}
+              <Field label="Job Position" htmlFor="jobPositionId">
+                <Select
+                  id="jobPositionId"
+                  value={v.jobPositionId}
                   disabled={readOnly}
-                  onChange={(e) => set("address", e.target.value)}
+                  onChange={(e) => set("jobPositionId", e.target.value)}
+                >
+                  <option value="">—</option>
+                  {positions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Manager" htmlFor="managerId" error={errors.managerId}>
+                <Select
+                  id="managerId"
+                  value={v.managerId}
+                  disabled={readOnly}
+                  error={Boolean(errors.managerId)}
+                  onChange={(e) => set("managerId", e.target.value)}
+                >
+                  <option value="">—</option>
+                  {managers
+                    .filter((m) => m.id !== v.id)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+              <Field label="Work Location" htmlFor="workLocation">
+                <Input
+                  id="workLocation"
+                  value={v.workLocation}
+                  disabled={readOnly}
+                  onChange={(e) => set("workLocation", e.target.value)}
                 />
               </Field>
-              <Field label="Emergency Contact Name" htmlFor="emergencyContactName">
-                <Input
-                  id="emergencyContactName"
-                  value={v.emergencyContactName}
+              <Field
+                label="Working Schedule"
+                htmlFor="workingScheduleId"
+                hint="Drives expected hours for attendance and payroll."
+              >
+                <Select
+                  id="workingScheduleId"
+                  value={v.workingScheduleId}
                   disabled={readOnly}
-                  onChange={(e) => set("emergencyContactName", e.target.value)}
-                />
+                  onChange={(e) => set("workingScheduleId", e.target.value)}
+                >
+                  <option value="">—</option>
+                  {schedules.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
               </Field>
-              <Field label="Emergency Contact Phone" htmlFor="emergencyContactPhone">
-                <Input
-                  id="emergencyContactPhone"
-                  value={v.emergencyContactPhone}
+              <Field label="Employee Type" htmlFor="employeeType">
+                <Select
+                  id="employeeType"
+                  value={v.employeeType}
                   disabled={readOnly}
-                  onChange={(e) => set("emergencyContactPhone", e.target.value)}
-                />
+                  onChange={(e) => set("employeeType", e.target.value as EmployeeType)}
+                >
+                  {Object.values(EmployeeType).map((t) => (
+                    <option key={t} value={t}>
+                      {EMPLOYEE_TYPE_LABEL[t]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Status">
+                <label className="flex h-9 items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={v.active}
+                    disabled={readOnly}
+                    onChange={(e) => set("active", e.target.checked)}
+                  />
+                  Active
+                </label>
               </Field>
             </FieldGrid>
           </FormSection>
+        )}
 
-          <FormSection
-            title="Bank details"
-            description="Missing bank details raise a payroll warning when a payrun is computed."
-          >
+        {tab === "Private Information" && (
+          <div className="stagger space-y-5">
+            <FormSection title="Personal">
+              <FieldGrid>
+                <Field label="Personal Email" htmlFor="personalEmail" error={errors.personalEmail}>
+                  <Input
+                    id="personalEmail"
+                    type="email"
+                    value={v.personalEmail}
+                    disabled={readOnly}
+                    error={Boolean(errors.personalEmail)}
+                    onChange={(e) => set("personalEmail", e.target.value)}
+                  />
+                </Field>
+                <Field label="Personal Phone" htmlFor="personalPhone">
+                  <Input
+                    id="personalPhone"
+                    value={v.personalPhone}
+                    disabled={readOnly}
+                    onChange={(e) => set("personalPhone", e.target.value)}
+                  />
+                </Field>
+                <Field label="Date of Birth" htmlFor="dateOfBirth">
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={v.dateOfBirth}
+                    disabled={readOnly}
+                    onChange={(e) => set("dateOfBirth", e.target.value)}
+                  />
+                </Field>
+                <Field label="Gender" htmlFor="gender">
+                  <Select
+                    id="gender"
+                    value={v.gender}
+                    disabled={readOnly}
+                    onChange={(e) => set("gender", e.target.value as Gender | "")}
+                  >
+                    <option value="">—</option>
+                    {Object.values(Gender).map((g) => (
+                      <option key={g} value={g}>
+                        {GENDER_LABEL[g]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Address" htmlFor="address" className="md:col-span-2">
+                  <Textarea
+                    id="address"
+                    rows={2}
+                    value={v.address}
+                    disabled={readOnly}
+                    onChange={(e) => set("address", e.target.value)}
+                  />
+                </Field>
+                <Field label="Emergency Contact Name" htmlFor="emergencyContactName">
+                  <Input
+                    id="emergencyContactName"
+                    value={v.emergencyContactName}
+                    disabled={readOnly}
+                    onChange={(e) => set("emergencyContactName", e.target.value)}
+                  />
+                </Field>
+                <Field label="Emergency Contact Phone" htmlFor="emergencyContactPhone">
+                  <Input
+                    id="emergencyContactPhone"
+                    value={v.emergencyContactPhone}
+                    disabled={readOnly}
+                    onChange={(e) => set("emergencyContactPhone", e.target.value)}
+                  />
+                </Field>
+              </FieldGrid>
+            </FormSection>
+
+            <FormSection
+              title="Bank details"
+              description="Missing bank details raise a payroll warning when a payrun is computed."
+            >
+              <FieldGrid>
+                <Field label="Bank Account Number" htmlFor="bankAccountNumber">
+                  <Input
+                    id="bankAccountNumber"
+                    value={v.bankAccountNumber}
+                    disabled={readOnly}
+                    className="font-mono"
+                    onChange={(e) => set("bankAccountNumber", e.target.value)}
+                  />
+                </Field>
+                <Field label="Bank Name" htmlFor="bankName">
+                  <Input
+                    id="bankName"
+                    value={v.bankName}
+                    disabled={readOnly}
+                    onChange={(e) => set("bankName", e.target.value)}
+                  />
+                </Field>
+                <Field label="IFSC" htmlFor="bankIfsc">
+                  <Input
+                    id="bankIfsc"
+                    value={v.bankIfsc}
+                    disabled={readOnly}
+                    className="font-mono uppercase"
+                    onChange={(e) => set("bankIfsc", e.target.value)}
+                  />
+                </Field>
+              </FieldGrid>
+            </FormSection>
+          </div>
+        )}
+
+        {tab === "HR Settings" && (
+          <FormSection>
             <FieldGrid>
-              <Field label="Bank Account Number" htmlFor="bankAccountNumber">
+              {/* Assigned by the server on create — never typed in. */}
+              <ReadOnlyValue
+                label="Employee Code"
+                hint={v.employeeCode ? "assigned" : "assigned on save"}
+                value={
+                  <span className="font-mono text-[13px]">
+                    {v.employeeCode ?? <span className="text-muted-foreground">—</span>}
+                  </span>
+                }
+              />
+              <Field label="Joining Date" htmlFor="joiningDate">
                 <Input
-                  id="bankAccountNumber"
-                  value={v.bankAccountNumber}
+                  id="joiningDate"
+                  type="date"
+                  value={v.joiningDate}
                   disabled={readOnly}
-                  onChange={(e) => set("bankAccountNumber", e.target.value)}
-                />
-              </Field>
-              <Field label="Bank Name" htmlFor="bankName">
-                <Input
-                  id="bankName"
-                  value={v.bankName}
-                  disabled={readOnly}
-                  onChange={(e) => set("bankName", e.target.value)}
-                />
-              </Field>
-              <Field label="IFSC" htmlFor="bankIfsc">
-                <Input
-                  id="bankIfsc"
-                  value={v.bankIfsc}
-                  disabled={readOnly}
-                  onChange={(e) => set("bankIfsc", e.target.value)}
+                  onChange={(e) => set("joiningDate", e.target.value)}
                 />
               </Field>
             </FieldGrid>
           </FormSection>
-        </div>
-      )}
-
-      {tab === "HR Settings" && (
-        <FormSection key="hr" className="animate-fade-in">
-          <FieldGrid>
-            <Field label="Employee Code" hint="Assigned automatically.">
-              <div className="flex h-9 items-center rounded-lg border border-dashed border-border bg-surface-muted/60 px-3 font-mono text-[13px]">
-                {v.employeeCode ?? "assigned on save"}
-              </div>
-            </Field>
-            <Field label="Joining Date" htmlFor="joiningDate">
-              <Input
-                id="joiningDate"
-                type="date"
-                value={v.joiningDate}
-                disabled={readOnly}
-                onChange={(e) => set("joiningDate", e.target.value)}
-              />
-            </Field>
-          </FieldGrid>
-        </FormSection>
-      )}
+        )}
+      </div>
 
       {!readOnly && (
-        <div className="flex items-center gap-2">
-          <Button onClick={submit} loading={pending} loadingText="Saving…">
-            {v.id ? "Save Changes" : "Create Employee"}
-          </Button>
-          <Button variant="ghost" onClick={() => router.back()} disabled={pending}>
-            Cancel
-          </Button>
+        <div className="glass-bar sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 px-4 py-3 shadow-raise">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            {saved ? (
+              <span key="saved" className="pop-in inline-flex items-center gap-1.5 text-success">
+                <Check className="h-3.5 w-3.5" aria-hidden />
+                Saved
+              </span>
+            ) : dirty ? (
+              <span key="dirty" className="inline-flex animate-fade-in items-center gap-2">
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-warning" />
+                Unsaved changes
+              </span>
+            ) : (
+              <span key="clean">
+                {v.id ? "All changes saved" : "Start with the work information"}
+              </span>
+            )}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => router.back()} disabled={pending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submit}
+              loading={pending}
+              loadingText="Saving…"
+              variant={saved ? "success" : "primary"}
+              className={cn("min-w-36 transition-colors duration-300", saved && "pointer-events-none")}
+            >
+              {saved ? (
+                <>
+                  <Check className="pop-in h-4 w-4" aria-hidden />
+                  Saved
+                </>
+              ) : v.id ? (
+                "Save changes"
+              ) : (
+                "Create employee"
+              )}
+            </Button>
+          </div>
         </div>
       )}
     </div>

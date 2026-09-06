@@ -1,7 +1,8 @@
 import { PayslipStatus, Role } from "@prisma/client"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, MailCheck } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { Spotlight } from "@/components/motion/Spotlight"
 import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Forbidden } from "@/components/shared/Forbidden"
@@ -24,6 +25,7 @@ type Row = {
   basic: unknown
   gross: unknown
   net: unknown
+  sentAt: Date | null
   contractId: string | null
   employee: { firstName: string; lastName: string; bankAccountNumber: string | null }
 }
@@ -33,6 +35,11 @@ const columns: Column<Row>[] = [
     key: "employee",
     header: "Employee",
     render: (r) => `${r.employee.firstName} ${r.employee.lastName}`,
+  },
+  {
+    key: "reference",
+    header: "Reference",
+    render: (r) => <span className="font-mono text-[12.5px] text-muted-foreground">{r.reference}</span>,
   },
   {
     key: "warning",
@@ -59,8 +66,27 @@ const columns: Column<Row>[] = [
     numeric: true,
     render: (r) => <span className="font-semibold">{formatMoneyCompact(String(r.net))}</span>,
   },
-  { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
+  {
+    key: "status",
+    header: "Status",
+    render: (r) => (
+      <span className="inline-flex items-center gap-1.5">
+        <StatusBadge status={r.status} />
+        {r.sentAt && (
+          <span
+            className="inline-flex items-center text-success"
+            title={`Emailed ${r.sentAt.toLocaleDateString()}`}
+          >
+            <MailCheck className="h-3.5 w-3.5" aria-hidden />
+            <span className="sr-only">Emailed</span>
+          </span>
+        )}
+      </span>
+    ),
+  },
 ]
+
+const eyebrow = "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
 
 export default async function PayrunDetailPage({
   params,
@@ -71,43 +97,52 @@ export default async function PayrunDetailPage({
   if (!user) return <Forbidden message="Payruns are restricted to payroll roles." />
 
   const { id } = await params
-  const payrun = await db.payrun.findUnique({
-    where: { id },
-    include: {
-      structure: { select: { id: true, name: true } },
-      warnings: {
-        select: {
-          id: true,
-          code: true,
-          severity: true,
-          message: true,
-          payslipId: true,
-        },
-      },
-      payslips: {
-        select: {
-          id: true,
-          reference: true,
-          status: true,
-          basic: true,
-          gross: true,
-          net: true,
-          sentAt: true,
-          contractId: true,
-          employee: {
-            select: { firstName: true, lastName: true, bankAccountNumber: true },
+  const [payrun, sums] = await Promise.all([
+    db.payrun.findUnique({
+      where: { id },
+      include: {
+        structure: { select: { id: true, name: true } },
+        warnings: {
+          select: {
+            id: true,
+            code: true,
+            severity: true,
+            message: true,
+            payslipId: true,
           },
         },
-        orderBy: { employee: { firstName: "asc" } },
+        payslips: {
+          select: {
+            id: true,
+            reference: true,
+            status: true,
+            basic: true,
+            gross: true,
+            net: true,
+            sentAt: true,
+            contractId: true,
+            employee: {
+              select: { firstName: true, lastName: true, bankAccountNumber: true },
+            },
+          },
+          orderBy: { employee: { firstName: "asc" } },
+        },
       },
-    },
-  })
+    }),
+    // Run totals are a database aggregate of the stored roll-ups — no money
+    // arithmetic happens in the page (rules.md §3).
+    db.payslip.aggregate({
+      where: { payrunId: id },
+      _sum: { gross: true, net: true },
+      _count: { _all: true },
+    }),
+  ])
   if (!payrun) notFound()
 
-  const totalNet = payrun.payslips.reduce((sum, p) => sum + Number(p.net), 0)
   const blockingCount = payrun.warnings.filter((w) => w.severity === "BLOCKING").length
   const issues = payrun.warnings.length
   const allSent = payrun.payslips.length > 0 && payrun.payslips.every((p) => p.sentAt !== null)
+  const employees = sums._count._all
 
   return (
     <>
@@ -115,7 +150,7 @@ export default async function PayrunDetailPage({
         breadcrumb="Payruns"
         backHref="/payroll/payruns"
         title={payrun.name}
-        subtitle={`${fmtRange(payrun.periodStart, payrun.periodEnd)} · ${payrun.structure.name} · ${payrun.payslips.length} payslips · ${formatINR(totalNet)} total net`}
+        subtitle={`${fmtRange(payrun.periodStart, payrun.periodEnd)} · ${payrun.structure.name} · ${employees} payslip${employees === 1 ? "" : "s"}`}
         badge={
           <span className="inline-flex items-center gap-2">
             <StatusBadge status={payrun.status} />
@@ -127,22 +162,21 @@ export default async function PayrunDetailPage({
             )}
           </span>
         }
-        actions={
-          <PayrunActionBar
-            payrunId={payrun.id}
-            status={payrun.status}
-            blockingCount={blockingCount}
-          />
-        }
       />
 
-      <Surface className="mb-5 grid gap-6 px-6 py-5 lg:grid-cols-[1.2fr_1fr] lg:items-center">
-        <PayrunStepper status={payrun.status} allSent={allSent} />
-        <dl className="stagger grid grid-cols-3 gap-4 border-t border-border/70 pt-4 text-sm lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+      <PayrunActionBar
+        payrunId={payrun.id}
+        status={payrun.status}
+        blockingCount={blockingCount}
+        payslipCount={employees}
+        allSent={allSent}
+      />
+
+      <Surface className="mb-5 grid gap-6 px-6 py-5 lg:grid-cols-[1.35fr_1fr] lg:items-center">
+        <PayrunStepper status={payrun.status} allSent={allSent} className="pt-1" />
+        <dl className="stagger grid grid-cols-2 gap-4 border-t border-border/70 pt-4 text-sm lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
           <div>
-            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Structure
-            </dt>
+            <dt className={eyebrow}>Structure</dt>
             <dd className="mt-1">
               <Link
                 href={`/payroll/structures/${payrun.structure.id}`}
@@ -153,21 +187,35 @@ export default async function PayrunDetailPage({
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Period
-            </dt>
+            <dt className={eyebrow}>Period</dt>
             <dd className="mt-1 font-medium">{fmtRange(payrun.periodStart, payrun.periodEnd)}</dd>
-          </div>
-          <div>
-            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Total Net
-            </dt>
-            <dd className="mt-1 text-base font-semibold">
-              <NumberTicker value={formatINR(totalNet)} />
-            </dd>
           </div>
         </dl>
       </Surface>
+
+      <div className="stagger mb-5 grid gap-3 sm:grid-cols-3">
+        <Spotlight className="pay-tile p-4">
+          <p className={eyebrow}>Employees</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular">
+            <NumberTicker value={String(employees)} />
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">one payslip each, from the period-applicable contract</p>
+        </Spotlight>
+        <Spotlight className="pay-tile p-4">
+          <p className={eyebrow}>Total gross</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular">
+            <NumberTicker value={formatINR(sums._sum.gross)} />
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">sum of every payslip&apos;s gross line</p>
+        </Spotlight>
+        <Spotlight className="pay-tile pay-tile-hero p-4">
+          <p className={eyebrow}>Total net</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular text-primary">
+            <NumberTicker value={formatINR(sums._sum.net)} delayStep={50} />
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">what leaves the bank when this run is paid</p>
+        </Spotlight>
+      </div>
 
       <WarningsPanel warnings={payrun.warnings} />
 

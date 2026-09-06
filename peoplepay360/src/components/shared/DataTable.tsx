@@ -22,6 +22,7 @@ export function DataTable<T>({
   rowHref,
   empty,
   footer,
+  caption,
 }: {
   columns: Column<T>[]
   rows: T[]
@@ -29,13 +30,17 @@ export function DataTable<T>({
   rowHref?: (row: T) => string
   empty?: React.ReactNode
   footer?: React.ReactNode
+  /** Visually hidden table caption for screen readers, e.g. "Payslips". */
+  caption?: string
 }) {
   return (
     <Surface className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-border/70 bg-surface-muted/60">
+          {caption && <caption className="sr-only">{caption}</caption>}
+          {/* Sticky within the scroll container, translucent so rows slide under it. */}
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-border/70 bg-surface-muted/80 backdrop-blur-md">
               {columns.map((c) => (
                 <th
                   key={c.key}
@@ -78,13 +83,14 @@ export function DataTable<T>({
                       )}
                     >
                       {/* The first cell carries the row link so the whole row is
-                          reachable by keyboard without nesting interactive elements. */}
+                          reachable by keyboard without nesting interactive elements.
+                          The underline draws in from the left on row hover. */}
                       {rowHref && i === 0 ? (
                         <Link
                           href={rowHref(row)}
-                          className="block font-medium text-foreground transition-colors duration-100 group-hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-md"
+                          className="block rounded-md font-medium text-foreground transition-colors duration-100 group-hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                         >
-                          {content}
+                          <span className="link-draw inline-block max-w-full">{content}</span>
                         </Link>
                       ) : (
                         content

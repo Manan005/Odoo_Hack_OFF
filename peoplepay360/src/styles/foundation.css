@@ -1,0 +1,117 @@
+/*
+ * Foundation — shared by every package. Imported by src/app/globals.css.
+ *
+ *   1. Accent hue: the single number every primary token derives from.
+ *   2. Theme reveal: the circular View Transition from the toggle's centre.
+ *   3. Spotlight / tilt: cursor-driven glow and perspective for cards.
+ *   4. Reveal: scroll-driven entrance for below-the-fold panels.
+ */
+
+@layer base {
+  /* ── 1. Accent hue ─────────────────────────────────────────────────── */
+  :root {
+    --accent-h: 270;
+  }
+  :root[data-accent="ocean"] {
+    --accent-h: 235;
+  }
+  :root[data-accent="teal"] {
+    --accent-h: 195;
+  }
+  :root[data-accent="emerald"] {
+    --accent-h: 155;
+  }
+  :root[data-accent="rose"] {
+    --accent-h: 355;
+  }
+  :root[data-accent="ember"] {
+    --accent-h: 40;
+  }
+
+  /* ── 2. Theme reveal ───────────────────────────────────────────────── */
+  /*
+   * With `.theme-reveal` on <html>, the new snapshot is clipped to a circle
+   * that grows from the toggle (--vt-x/--vt-y, set by ThemeProvider) until it
+   * covers the farthest corner (--vt-r). The old snapshot just sits beneath,
+   * so nothing fades — the new theme is wiped on. Without the class the
+   * default crossfade in globals.css applies (accent changes, palette).
+   */
+  :root.theme-reveal::view-transition-old(root),
+  :root.theme-reveal::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  :root.theme-reveal::view-transition-new(root) {
+    animation: vt-reveal 0.62s var(--ease-out-quart) both;
+  }
+  @keyframes vt-reveal {
+    from {
+      clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
+    to {
+      clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
+  }
+}
+
+@layer components {
+  /* ── 3. Spotlight / tilt ───────────────────────────────────────────── */
+  /*
+   * `.spot` paints a radial primary glow at --mx/--my (written by
+   * <Spotlight>) beneath the element's children. The pseudo-element sits at
+   * z-index -1 inside an isolated stacking context, so it lies above the
+   * element's own background and below its content without any child
+   * needing to be positioned.
+   */
+  .spot {
+    position: relative;
+    isolation: isolate;
+  }
+  .spot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      300px circle at var(--mx, 50%) var(--my, 50%),
+      color-mix(in oklch, var(--color-primary) 16%, transparent),
+      transparent 65%
+    );
+    transition: opacity 0.35s var(--ease-out-quart);
+  }
+  .spot:hover::before {
+    opacity: 1;
+  }
+
+  /* Perspective tilt; --rx/--ry are written by <Tilt> and reset on leave. */
+  .tilt {
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform 0.3s var(--ease-out-quart);
+    transform-style: preserve-3d;
+  }
+  .tilt:hover {
+    transition-duration: 0.08s;
+  }
+
+  /* Accent swatch: painted with the primary recipe at the swatch's hue. */
+  .swatch {
+    background: light-dark(oklch(0.5 0.2 var(--swatch-h)), oklch(0.74 0.15 var(--swatch-h)));
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.25);
+  }
+
+  /* ── 4. Reveal ─────────────────────────────────────────────────────── */
+  /* Below-the-fold entrance driven by the scroll position; a no-op where
+     scroll-driven animations are unsupported. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .reveal {
+        animation: fade-up linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 35%;
+      }
+    }
+  }
+}

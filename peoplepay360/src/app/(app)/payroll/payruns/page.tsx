@@ -21,7 +21,8 @@ type Row = {
   status: PayrunStatus
   structure: { name: string }
   _count: { payslips: number }
-  payslips: Array<{ net: unknown }>
+  /** Database sum of the run's payslip nets — null when the run has none. */
+  totalNet: unknown
 }
 
 const columns: Column<Row>[] = [
@@ -42,8 +43,11 @@ const columns: Column<Row>[] = [
     key: "net",
     header: "Total Net",
     numeric: true,
-    render: (r) =>
-      formatMoneyCompact(r.payslips.reduce((sum, p) => sum + Number(p.net), 0)),
+    render: (r) => (
+      <span className="font-semibold">
+        {r.totalNet === null ? "—" : formatMoneyCompact(String(r.totalNet))}
+      </span>
+    ),
   },
   { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
 ]
@@ -82,7 +86,6 @@ export default async function PayrunsPage({
         status: true,
         structure: { select: { name: true } },
         _count: { select: { payslips: true } },
-        payslips: { select: { net: true } },
       },
       orderBy: { periodStart: "desc" },
     }),
@@ -98,6 +101,16 @@ export default async function PayrunsPage({
     }),
   ])
 
+  // Per-run totals as one database aggregate — the page never adds money up
+  // itself (rules.md §3).
+  const sums = await db.payslip.groupBy({
+    by: ["payrunId"],
+    where: { payrunId: { in: payruns.map((p) => p.id) } },
+    _sum: { net: true },
+  })
+  const netByRun = new Map(sums.map((s) => [s.payrunId, s._sum.net]))
+  const rows: Row[] = payruns.map((p) => ({ ...p, totalNet: netByRun.get(p.id) ?? null }))
+
   return (
     <>
       <PageHeader
@@ -112,7 +125,7 @@ export default async function PayrunsPage({
 
       <DataTable
         columns={columns}
-        rows={payruns}
+        rows={rows}
         rowKey={(r) => r.id}
         rowHref={(r) => `/payroll/payruns/${r.id}`}
         empty={

@@ -1,7 +1,7 @@
 "use client"
 
 import { EmployeeType } from "@prisma/client"
-import { Plus, X } from "lucide-react"
+import { ArrowRight, Check, Plus, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -12,6 +12,7 @@ import {
 } from "@/actions/payrun.actions"
 import { Button } from "@/components/ui/button"
 import { Checkbox, Field, Input, Select } from "@/components/ui/field"
+import { fmtRange } from "@/lib/dates"
 import { formatMoneyCompact } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { EMPLOYEE_TYPE_LABEL } from "@/lib/validation/employee"
@@ -32,6 +33,8 @@ const thisMonth = () => {
   const iso = (d: Date) => d.toISOString().slice(0, 10)
   return { start: iso(start), end: iso(end) }
 }
+
+const eyebrow = "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
 
 /**
  * Two-step wizard. Step 1 and Continue write nothing — only "Create Payrun"
@@ -146,6 +149,12 @@ export function PayrunWizard({
       return next
     })
 
+  const structureName = structures.find((s) => s.id === scope.structureId)?.name ?? "—"
+  const periodLabel =
+    scope.periodStart && scope.periodEnd
+      ? fmtRange(new Date(scope.periodStart), new Date(scope.periodEnd))
+      : "—"
+
   const closeButton = (
     <button
       type="button"
@@ -157,17 +166,16 @@ export function PayrunWizard({
     </button>
   )
 
+  // The progress rail's fill scales to the step; the transition in
+  // payroll.css animates it between steps.
   const stepIndicator = (
-    <div className="flex items-center gap-1.5" aria-label={`Step ${step} of 2`}>
-      {[1, 2].map((s) => (
-        <span
-          key={s}
-          className={cn(
-            "h-1 rounded-full transition-[width,background-color] duration-300 ease-out-quart",
-            s === step ? "w-6 bg-primary" : s < step ? "w-3 bg-primary/50" : "w-3 bg-border",
-          )}
-        />
-      ))}
+    <div className="flex items-center gap-2.5" aria-label={`Step ${step} of 2`}>
+      <span className="text-[11px] font-medium tabular text-muted-foreground">
+        Step {step} of 2
+      </span>
+      <span className="wiz-rail" aria-hidden>
+        <span style={{ ["--p" as string]: step === 1 ? 0.5 : 1 }} />
+      </span>
     </div>
   )
 
@@ -184,7 +192,7 @@ export function PayrunWizard({
         className="w-full max-w-3xl rounded-2xl border border-border/70 bg-surface p-0 text-foreground shadow-modal backdrop:bg-transparent"
       >
         {step === 1 ? (
-          <div key="step-1" className="animate-fade-in">
+          <div key="step-1" className="wiz-step">
             <header className="flex items-center justify-between border-b border-border/70 px-6 py-4">
               <div>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
@@ -286,29 +294,54 @@ export function PayrunWizard({
               </Field>
             </div>
 
-            <footer className="flex items-center justify-end gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
-              <Button variant="ghost" onClick={close} disabled={pending}>
-                Cancel
-              </Button>
-              <Button onClick={onContinue} loading={pending} loadingText="Finding employees…">
-                Continue
-              </Button>
+            <footer className="flex items-center justify-between gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
+              <p className="text-xs text-muted-foreground">
+                Continue only looks up who has a contract in this period. Nothing is written yet.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={close} disabled={pending}>
+                  Cancel
+                </Button>
+                <Button onClick={onContinue} loading={pending} loadingText="Finding employees…">
+                  Continue
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
             </footer>
           </div>
         ) : (
-          <div key="step-2" className="animate-fade-in">
+          <div key="step-2" className="wiz-step">
             <header className="flex items-center justify-between border-b border-border/70 px-6 py-4">
               <div>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
                   New pay run
                 </p>
-                <h2 className="text-lg font-semibold tracking-tight">Select employee records</h2>
+                <h2 className="text-lg font-semibold tracking-tight">Confirm the employees</h2>
               </div>
               <div className="flex items-center gap-4">
                 {stepIndicator}
                 {closeButton}
               </div>
             </header>
+
+            {/* Resolution summary — what Continue found, before anything is written. */}
+            <dl className="stagger grid grid-cols-3 gap-4 border-b border-border/70 bg-surface-muted/40 px-6 py-3.5">
+              <div>
+                <dt className={eyebrow}>Resolved</dt>
+                <dd className="mt-0.5 text-sm font-semibold tabular">
+                  {eligible.length} employee{eligible.length === 1 ? "" : "s"}{" "}
+                  <span className="font-normal text-muted-foreground">with a running contract</span>
+                </dd>
+              </div>
+              <div>
+                <dt className={eyebrow}>Structure</dt>
+                <dd className="mt-0.5 truncate text-sm font-medium">{structureName}</dd>
+              </div>
+              <div>
+                <dt className={eyebrow}>Period</dt>
+                <dd className="mt-0.5 text-sm font-medium tabular">{periodLabel}</dd>
+              </div>
+            </dl>
 
             <div className="flex items-center gap-3 border-b border-border/70 px-6 py-3">
               <Input
@@ -323,7 +356,7 @@ export function PayrunWizard({
               </span>
             </div>
 
-            <div className="max-h-[22rem] overflow-y-auto">
+            <div className="max-h-[20rem] overflow-y-auto">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-10 bg-surface-muted backdrop-blur">
                   <tr className="border-b border-border/70">
@@ -334,7 +367,7 @@ export function PayrunWizard({
                         aria-label="Select all"
                       />
                     </th>
-                    {["Employee", "Working Hours", "Start Date", "Wage"].map((h, i) => (
+                    {["Employee", "Schedule", "Contract from", "Wage"].map((h, i) => (
                       <th
                         key={h}
                         className={cn(
@@ -359,7 +392,8 @@ export function PayrunWizard({
                       onClick={() =>
                         setSelected((prev) => {
                           const next = new Set(prev)
-                          next.has(e.id) ? next.delete(e.id) : next.add(e.id)
+                          if (next.has(e.id)) next.delete(e.id)
+                          else next.add(e.id)
                           return next
                         })
                       }
@@ -373,6 +407,9 @@ export function PayrunWizard({
                       </td>
                       <td className="px-4 py-2.5 text-sm">
                         <span className="font-medium">{e.name}</span>
+                        <span className="ml-1.5 font-mono text-[11px] text-subtle-foreground">
+                          {e.employeeCode}
+                        </span>
                         {e.department && (
                           <span className="ml-1.5 text-xs text-muted-foreground">
                             {e.department}
@@ -380,9 +417,12 @@ export function PayrunWizard({
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-sm text-muted-foreground">
-                        {e.hoursPerWeek > 0 ? `${e.hoursPerWeek} hours/week` : "—"}
+                        {e.scheduleName ?? "—"}
+                        {e.hoursPerWeek > 0 && (
+                          <span className="ml-1 text-xs tabular">· {e.hoursPerWeek} h/wk</span>
+                        )}
                       </td>
-                      <td className="px-4 py-2.5 text-sm text-muted-foreground">
+                      <td className="px-4 py-2.5 text-sm tabular text-muted-foreground">
                         {e.contractStart}
                       </td>
                       <td className="px-4 py-2.5 text-right text-sm tabular">
@@ -396,7 +436,7 @@ export function PayrunWizard({
 
             <footer className="flex items-center justify-between gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
               <p className="text-xs text-muted-foreground">
-                The payrun is created only after employee selection.
+                Create writes the payrun and one draft payslip per selected employee.
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" onClick={() => setStep(1)} disabled={pending}>
@@ -406,8 +446,9 @@ export function PayrunWizard({
                   onClick={onCreate}
                   disabled={selected.size === 0}
                   loading={pending}
-                  loadingText="Creating…"
+                  loadingText={`Creating ${selected.size} payslip${selected.size === 1 ? "" : "s"}…`}
                 >
+                  <Check className="h-4 w-4" aria-hidden />
                   Create payrun ({selected.size})
                 </Button>
               </div>

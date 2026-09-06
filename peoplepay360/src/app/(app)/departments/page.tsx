@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client"
 import { upsertDepartment } from "@/actions/employee.actions"
+import { RecordStats } from "@/components/employees/RecordStats"
 import { SimpleNameList } from "@/components/employees/SimpleNameList"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
@@ -36,13 +37,18 @@ export default async function DepartmentsPage() {
   return (
     <>
       <PageHeader
+        eyebrow="People"
         title="Departments"
         subtitle="Departments group employees for reporting and dashboard breakdowns."
+        actions={
+          <RecordStats stats={[{ label: "departments", value: departments.length, tone: "primary" }]} />
+        }
       />
       <SimpleNameList
         entityLabel="Department"
         managers={managers}
         save={upsertDepartment}
+        countHrefBase="/employees?departmentId="
         rows={departments.map((d) => ({
           id: d.id,
           name: d.name,

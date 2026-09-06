@@ -7,32 +7,27 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts"
+import { useReducedMotion } from "@/components/dashboard/use-reduced-motion"
 import { formatINR, formatLakh } from "@/lib/money"
 
 const AXIS = { fontSize: 11, fill: "var(--color-muted-foreground)" }
 const GRID = "var(--color-chart-grid)"
-const ANIM = { animationDuration: 900, animationEasing: "ease-out" as const }
+/** Removes the zero-width first frame before ResponsiveContainer measures. */
+const INITIAL = { width: 600, height: 288 }
 
-const SERIES = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-]
-
-const STATUS_COLOR: Record<string, string> = {
-  PAID: "var(--color-success)",
-  VALIDATED: "var(--color-primary)",
-  COMPUTED: "var(--color-info)",
-  DRAFT: "var(--color-neutral)",
+/** Recharts animates in JS, so the CSS kill switch needs a hand here. */
+function useAnim() {
+  const reduced = useReducedMotion()
+  return {
+    isAnimationActive: !reduced,
+    animationDuration: 900,
+    animationEasing: "ease-out" as const,
+  }
 }
 
 function TooltipBox({
@@ -40,11 +35,14 @@ function TooltipBox({
   payload,
   label,
   formatter,
+  swatch,
 }: {
   active?: boolean
   payload?: Array<{ name?: string; value?: number | string; color?: string }>
   label?: string
   formatter?: (v: number) => string
+  /** Overrides the series colour when the fill is a gradient url. */
+  swatch?: string
 }) {
   if (!active || !payload?.length) return null
   return (
@@ -54,7 +52,7 @@ function TooltipBox({
         <p key={i} className="flex items-center gap-2 tabular">
           <span
             className="h-2 w-2 rounded-sm"
-            style={{ background: p.color ?? "var(--color-chart-1)" }}
+            style={{ background: swatch ?? p.color ?? "var(--color-chart-1)" }}
             aria-hidden
           />
           <span className="text-muted-foreground">{p.name}</span>
@@ -70,14 +68,30 @@ function TooltipBox({
 export function SalaryByDepartmentChart({
   data,
 }: {
-  data: Array<{ department: string; net: number }>
+  data: Array<{ department: string; net: number; headcount: number }>
 }) {
-  if (data.length === 0) return <EmptyChart />
+  const anim = useAnim()
+  if (data.length === 0) return <EmptyChart>No departments match the selected filters.</EmptyChart>
+  if (data.every((d) => d.net === 0)) {
+    return (
+      <EmptyChart>
+        No payslips in this period yet — bars fill in once the payrun is computed.
+      </EmptyChart>
+    )
+  }
+  const top = data.reduce((m, d) => Math.max(m, d.net), 0)
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }} barCategoryGap="28%">
+    <ResponsiveContainer width="100%" height="100%" initialDimension={INITIAL}>
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }} barCategoryGap="30%">
+        <defs>
+          <linearGradient id="dept-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={1} />
+            <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0.5} />
+          </linearGradient>
+        </defs>
         <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="department" tick={AXIS} axisLine={false} tickLine={false} />
+        <XAxis dataKey="department" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
         <YAxis
           tick={AXIS}
           axisLine={false}
@@ -87,11 +101,19 @@ export function SalaryByDepartmentChart({
         />
         <Tooltip
           cursor={{ fill: "var(--color-surface-hover)", radius: 8 }}
-          content={<TooltipBox formatter={(v) => formatINR(v)} />}
+          content={<TooltipBox formatter={(v) => formatINR(v)} swatch="var(--color-chart-1)" />}
         />
-        <Bar dataKey="net" name="Net salary" radius={[6, 6, 2, 2]} maxBarSize={44} {...ANIM}>
-          {data.map((_, i) => (
-            <Cell key={i} fill={SERIES[i % SERIES.length]} />
+        <Bar
+          dataKey="net"
+          name="Net salary"
+          fill="url(#dept-fill)"
+          radius={[6, 6, 2, 2]}
+          maxBarSize={44}
+          {...anim}
+        >
+          {/* One hue for one metric; the top earner reads at full strength. */}
+          {data.map((d) => (
+            <Cell key={d.department} fill="url(#dept-fill)" fillOpacity={d.net === top ? 1 : 0.7} />
           ))}
         </Bar>
       </BarChart>
@@ -104,9 +126,11 @@ export function MonthlyTrendChart({
 }: {
   data: Array<{ label: string; net: number }>
 }) {
-  if (data.length === 0) return <EmptyChart />
+  const anim = useAnim()
+  if (data.length === 0) return <EmptyChart>No payslip history for the selected filters.</EmptyChart>
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" initialDimension={INITIAL}>
       <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
         <defs>
           <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
@@ -126,7 +150,7 @@ export function MonthlyTrendChart({
         />
         <Tooltip
           cursor={{ stroke: "var(--color-border-strong)", strokeDasharray: "3 3" }}
-          content={<TooltipBox formatter={(v) => formatINR(v)} />}
+          content={<TooltipBox formatter={(v) => formatINR(v)} swatch="var(--color-chart-1)" />}
         />
         <Area
           type="monotone"
@@ -137,75 +161,15 @@ export function MonthlyTrendChart({
           fill="url(#trend-fill)"
           dot={{ r: 3, fill: "var(--color-chart-1)", strokeWidth: 0 }}
           activeDot={{ r: 5, stroke: "var(--color-surface)", strokeWidth: 2 }}
-          {...ANIM}
+          {...anim}
         />
       </AreaChart>
     </ResponsiveContainer>
   )
 }
 
-export function PayslipStatusChart({
-  data,
-}: {
-  data: Array<{ status: string; count: number }>
-}) {
-  if (data.length === 0) return <EmptyChart />
-  const total = data.reduce((n, d) => n + d.count, 0)
-  return (
-    <div className="flex h-full items-center gap-4">
-      <div className="relative h-full flex-1">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="count"
-              nameKey="status"
-              innerRadius="62%"
-              outerRadius="88%"
-              paddingAngle={3}
-              cornerRadius={5}
-              stroke="var(--color-surface)"
-              strokeWidth={2}
-              {...ANIM}
-            >
-              {data.map((d, i) => (
-                <Cell
-                  key={d.status}
-                  fill={STATUS_COLOR[d.status] ?? SERIES[i % SERIES.length]}
-                />
-              ))}
-            </Pie>
-            <Tooltip content={<TooltipBox />} />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-semibold leading-none tracking-tight tabular">{total}</span>
-          <span className="mt-1 text-[10px] uppercase tracking-wider text-subtle-foreground">
-            payslips
-          </span>
-        </div>
-      </div>
-      <ul className="w-36 space-y-1.5 text-xs">
-        {data.map((d, i) => (
-          <li key={d.status} className="flex items-center gap-2">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-sm"
-              style={{ background: STATUS_COLOR[d.status] ?? SERIES[i % SERIES.length] }}
-              aria-hidden
-            />
-            <span className="flex-1 capitalize text-muted-foreground">
-              {d.status.toLowerCase()}
-            </span>
-            <span className="tabular font-medium">{d.count}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-const EmptyChart = () => (
-  <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border/80 text-sm text-muted-foreground">
-    No data for the selected filters.
+const EmptyChart = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border/80 px-6 text-center text-sm text-muted-foreground">
+    {children}
   </div>
 )

@@ -96,3 +96,12 @@ export function landingFor(user: SessionUser): string {
   if (rank >= ROLE_RANK.HR_MANAGER) return "/employees"
   return "/employees/me"
 }
+
+/*
+ * Command palette source. The implementation lives in a dependency-free
+ * module under components/layout so the client island can call it without
+ * pulling this file's auth-guard → Prisma chain into the browser bundle.
+ * Server callers (not-found suggestions) import it from here.
+ */
+export { commandsFor } from "@/components/layout/commands"
+export type { Command, CommandGroup } from "@/components/layout/commands"

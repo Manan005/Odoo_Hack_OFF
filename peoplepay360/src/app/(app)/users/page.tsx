@@ -1,12 +1,12 @@
 import { Role } from "@prisma/client"
 import { ShieldCheck } from "lucide-react"
-import Link from "next/link"
+import { RecordStats } from "@/components/employees/RecordStats"
 import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { ListToolbar } from "@/components/shared/ListToolbar"
+import { FilterChip, ListToolbar } from "@/components/shared/ListToolbar"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { Forbidden } from "@/components/shared/Forbidden"
-import { ActiveBadge } from "@/components/shared/StatusBadge"
+import { ActiveBadge, StatusBadge } from "@/components/shared/StatusBadge"
 import { ROLE_LABEL, pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 
@@ -28,6 +28,11 @@ const columns: Column<Row>[] = [
       r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : r.email,
   },
   {
+    key: "email",
+    header: "Work Email",
+    render: (r) => <span className="font-mono text-[13px]">{r.email}</span>,
+  },
+  {
     key: "employee",
     header: "Employee",
     render: (r) =>
@@ -38,22 +43,14 @@ const columns: Column<Row>[] = [
       ),
   },
   {
-    key: "email",
-    header: "Work Email",
-    render: (r) => <span className="font-mono text-[13px]">{r.email}</span>,
-  },
-  {
     key: "roles",
-    header: "Role",
+    header: "Roles",
+    // Role is an enum without a colour mapping, so StatusBadge falls back to
+    // its neutral ring chip — one chip family across the app, no ad-hoc spans.
     render: (r) => (
       <span className="flex flex-wrap gap-1">
         {r.roles.map((role) => (
-          <span
-            key={role}
-            className="rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/60"
-          >
-            {ROLE_LABEL[role]}
-          </span>
+          <StatusBadge key={role} status={ROLE_LABEL[role]} />
         ))}
       </span>
     ),
@@ -71,10 +68,11 @@ export default async function UsersPage({
   if (!actor) return <Forbidden message="User management is restricted to administrators." />
 
   const { q, role } = await searchParams
+  const roleFilter = role && role in Role ? (role as Role) : undefined
 
   const users = await db.user.findMany({
     where: {
-      ...(role && role in Role ? { roles: { has: role as Role } } : {}),
+      ...(roleFilter ? { roles: { has: roleFilter } } : {}),
       ...(q
         ? {
             OR: [
@@ -95,9 +93,13 @@ export default async function UsersPage({
     orderBy: { email: "asc" },
   })
 
+  // Over the rows fetched above — nothing invented.
+  const activeCount = users.filter((u) => u.active).length
+
   return (
     <>
       <PageHeader
+        eyebrow="Administration"
         title="User Management"
         subtitle="Admin only — create accounts, link them to employees, and assign roles."
       />
@@ -106,13 +108,18 @@ export default async function UsersPage({
         newHref="/users/new"
         newLabel="New user"
         searchPlaceholder="Search users, employees or email…"
+        chips={
+          roleFilter ? (
+            <FilterChip paramKey="role" label={`Role: ${ROLE_LABEL[roleFilter]}`} />
+          ) : undefined
+        }
       >
-        <Link
-          href="/users"
-          className="text-xs text-muted-foreground hover:text-primary"
-        >
-          Clear filters
-        </Link>
+        <RecordStats
+          stats={[
+            { label: "users", value: users.length, tone: "primary" },
+            { label: "active", value: activeCount, tone: "success" },
+          ]}
+        />
       </ListToolbar>
 
       <DataTable

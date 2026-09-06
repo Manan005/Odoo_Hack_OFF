@@ -1,14 +1,15 @@
 "use client"
 
 import { TimeOffUnit } from "@prisma/client"
-import { Info } from "lucide-react"
+import { AlertTriangle, Wallet } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { saveRequest } from "@/actions/timeoff.actions"
 import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
-import { Field, Input, Select, Textarea } from "@/components/ui/field"
+import { Field, Input, ReadOnlyValue, Select, Textarea } from "@/components/ui/field"
+import { NumberTicker } from "@/components/ui/number-ticker"
 import { formatDuration } from "@/lib/money"
 import { cn } from "@/lib/utils"
 
@@ -70,6 +71,9 @@ export function RequestForm({
     remaining[v.employeeId]?.[typeId] ?? null
 
   const selectedRemaining = selected ? remainingFor(selected.id) : null
+  // Nothing left to draw on is a warning, not a neutral note.
+  const exhausted =
+    Boolean(v.employeeId) && (selectedRemaining === null || selectedRemaining <= 0)
 
   const submit = () => {
     setErrors({})
@@ -93,7 +97,7 @@ export function RequestForm({
       {formError && (
         <p
           role="alert"
-          className="rounded-md border border-danger bg-danger-subtle px-4 py-3 text-sm text-danger"
+          className="animate-fade-in rounded-xl border border-danger/40 bg-danger-subtle px-4 py-3 text-sm text-danger"
         >
           {formError}
         </p>
@@ -188,51 +192,88 @@ export function RequestForm({
         </FieldGrid>
 
         {selected?.requiresAllocation && (
-          <p
+          <div
+            key={`${v.employeeId}:${selected.id}`}
             className={cn(
-              "mt-4 flex items-start gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset",
-              // Nothing left to draw on is a warning, not a neutral note.
-              v.employeeId && (selectedRemaining === null || selectedRemaining <= 0)
-                ? "bg-warning-subtle text-warning ring-warning/25"
-                : "bg-info-subtle text-info ring-info/20",
+              "panel-in mt-5 flex items-center justify-between gap-4 rounded-xl p-4 ring-1 ring-inset",
+              exhausted ? "bg-warning-subtle ring-warning/25" : "bg-info-subtle ring-info/20",
             )}
           >
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span>
-              {selected.name} draws on an allocation.
-              {!v.employeeId
-                ? " Select an employee to see the remaining balance."
-                : selectedRemaining === null
-                  ? " This employee has no approved allocation of this type — one is required before the leave can be requested."
-                  : ` ${formatDuration(selectedRemaining, selected.unit)} remaining — approving this request will consume from it.`}
+            <div className="min-w-0">
+              <p
+                className={cn(
+                  "text-[11px] font-semibold uppercase tracking-[0.12em]",
+                  exhausted ? "text-warning" : "text-info",
+                )}
+              >
+                Remaining balance
+              </p>
+              <div className="mt-1.5 leading-none">
+                {!v.employeeId ? (
+                  <span className="text-sm text-muted-foreground">
+                    Select an employee to see the balance.
+                  </span>
+                ) : selectedRemaining === null ? (
+                  <span className="font-display text-2xl font-semibold tracking-tight text-warning">
+                    No allocation
+                  </span>
+                ) : (
+                  <NumberTicker
+                    value={formatDuration(selectedRemaining, selected.unit)}
+                    className={cn(
+                      "font-display text-[32px] font-semibold tracking-tight",
+                      exhausted ? "text-warning" : "text-foreground",
+                    )}
+                  />
+                )}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {selected.name} draws on an allocation.
+                {!v.employeeId
+                  ? ""
+                  : selectedRemaining === null
+                    ? " An approved allocation of this type is required before the leave can be requested."
+                    : " Approving this request consumes from it."}
+              </p>
+            </div>
+            <span
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface ring-1",
+                exhausted ? "text-warning ring-warning/25" : "text-info ring-info/20",
+              )}
+            >
+              {exhausted ? (
+                <AlertTriangle className="h-5 w-5" aria-hidden />
+              ) : (
+                <Wallet className="h-5 w-5" aria-hidden />
+              )}
             </span>
-          </p>
+          </div>
         )}
 
         {v.id && duration && (
-          <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm">
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Duration</dt>
-              <dd className="mt-1 font-medium tabular">{duration}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                Allocation Used
-              </dt>
-              <dd className="mt-1 font-medium">
-                {allocationLabel ?? (
-                  <span className="text-muted-foreground">none — type needs no allocation</span>
-                )}
-              </dd>
-            </div>
-          </dl>
+          <div className="mt-5 grid grid-cols-1 gap-x-8 gap-y-5 border-t border-border/70 pt-5 md:grid-cols-2">
+            {/* Both derived by the server (BR-T4) — shown, never typed. */}
+            <ReadOnlyValue label="Duration" value={duration} hint="working days" />
+            <ReadOnlyValue
+              label="Allocation Used"
+              value={
+                allocationLabel ?? (
+                  <span className="font-normal text-muted-foreground">
+                    none — type needs no allocation
+                  </span>
+                )
+              }
+              hint=""
+            />
+          </div>
         )}
       </FormSection>
 
       {!readOnly && (
         <div className="flex items-center gap-2">
           <Button onClick={submit} loading={pending} loadingText="Saving…">
-            {v.id ? "Save Changes" : "Submit Request"}
+            {v.id ? "Save changes" : "Submit request"}
           </Button>
           <Button
             variant="ghost"

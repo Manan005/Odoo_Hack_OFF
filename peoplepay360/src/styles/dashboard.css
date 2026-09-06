@@ -1,0 +1,230 @@
+/* dashboard package styles — imported by src/app/globals.css. Plain classes go in @layer components; classes that need variants (hover:, md:) use @utility; @keyframes at top level. */
+
+/*
+ * Every animation here is one-shot and touches only transform, opacity or
+ * stroke-dashoffset. The global prefers-reduced-motion switch in globals.css
+ * collapses all of them, including the infinite pulse on the sparkline.
+ */
+
+@keyframes spark-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes spark-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes spark-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+/* `--v` is the arc's own length; offsetting by it hides the arc, so it draws from the start. */
+@keyframes gauge-draw {
+  from {
+    stroke-dashoffset: var(--v, 0);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Translate only — the blob is a gradient, not a filter, so nothing re-rasterises. */
+@keyframes hero-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-9%, 11%, 0);
+  }
+}
+
+@layer components {
+  /*
+   * Hero — the one ink tile on the dashboard. Same ink in both modes, rhyming
+   * with the login brand panel. `--ink-accent` lifts the accent hue so it
+   * reads on ink whatever the theme's primary lightness is.
+   */
+  .hero-ink {
+    --ink-accent: color-mix(in oklch, var(--color-primary) 58%, var(--color-ink-fg));
+    position: relative;
+    isolation: isolate;
+    background-color: var(--color-ink);
+    color: var(--color-ink-fg);
+  }
+  .hero-ink::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        72% 62% at 100% 0%,
+        color-mix(in oklch, var(--color-primary) 30%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        48% 40% at 0% 100%,
+        color-mix(in oklch, var(--color-chart-2) 10%, transparent),
+        transparent 70%
+      );
+  }
+  .hero-blob {
+    position: absolute;
+    top: -7rem;
+    right: -7rem;
+    z-index: -1;
+    width: 20rem;
+    height: 20rem;
+    border-radius: 9999px;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklch, var(--color-primary) 38%, transparent),
+      transparent
+    );
+    animation: hero-drift 12s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  /*
+   * Re-theme surface-scoped primitives (PayrunStepper) for the ink card.
+   * Tailwind utilities resolve to var(--color-*), so overriding the variables
+   * on a wrapper restyles the stepper without touching its source.
+   * `--ink-accent` is inherited from .hero-ink, where --color-primary is still
+   * the theme value, so there is no cycle.
+   */
+  .ink-scope {
+    --color-primary: var(--ink-accent);
+    --color-primary-fg: var(--color-ink);
+    --color-surface: var(--color-ink);
+    --color-foreground: var(--color-ink-fg);
+    --color-muted-foreground: color-mix(in oklch, var(--color-ink-fg) 72%, transparent);
+    --color-subtle-foreground: color-mix(in oklch, var(--color-ink-fg) 46%, transparent);
+    --color-border: color-mix(in oklch, var(--color-ink-fg) 22%, transparent);
+  }
+
+  /* Sparkline: the polyline draws itself, the area fades in behind it. */
+  .spark-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: spark-draw 1.2s var(--ease-out-quart) 0.2s both;
+  }
+  .spark-area {
+    animation: spark-fade 0.8s var(--ease-out-quart) 0.85s both;
+  }
+  .spark-dot {
+    position: relative;
+    background: var(--ink-accent);
+    box-shadow: 0 0 0 2px var(--color-ink);
+  }
+  .spark-dot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ink-accent);
+    animation: spark-pulse 2.4s var(--ease-out-quart) 1.5s infinite;
+  }
+
+  /* Arc gauge: value arc first, coverage ring a beat later. */
+  .gauge-arc {
+    animation: gauge-draw 0.9s var(--ease-out-quart) 0.25s both;
+  }
+  .gauge-ring {
+    animation: gauge-draw 0.9s var(--ease-out-quart) 0.55s both;
+  }
+
+  /* Rails that grow from an edge; `--delay` staggers siblings. */
+  .grow-rail {
+    transform-origin: left;
+    animation: grow-x 0.9s var(--ease-out-quart) both;
+    animation-delay: var(--delay, 0ms);
+  }
+  .grow-rail-right {
+    transform-origin: right;
+    animation: grow-x 0.9s var(--ease-out-quart) both;
+    animation-delay: var(--delay, 0ms);
+  }
+  .rise-in {
+    animation: rise-in 0.5s var(--ease-out-quart) both;
+    animation-delay: var(--delay, 0ms);
+  }
+
+  /* Deductions are drawn as a hatched segment taken off the gross. */
+  .comp-hatch {
+    background-color: color-mix(in oklch, var(--color-chart-4) 45%, transparent);
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--color-chart-4) 0 3px,
+      transparent 3px 7px
+    );
+    box-shadow: inset 2px 0 0 var(--color-surface);
+  }
+
+  /*
+   * Stretched link: the whole card is the target while the markup keeps a
+   * single anchor. Focus draws the ring on the card edge.
+   */
+  .stretched::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: var(--stretch-radius, var(--radius-2xl));
+  }
+  .stretched:focus-visible {
+    outline: none;
+  }
+  .stretched:focus-visible::after {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+}
+
+/*
+ * Below-the-fold panels reveal on scroll instead of at mount, where the
+ * cascade would play unseen. Engines without view timelines keep the stagger.
+ */
+@supports (animation-timeline: view()) {
+  .stagger > .reveal {
+    animation: reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+    animation-delay: 0s;
+  }
+}

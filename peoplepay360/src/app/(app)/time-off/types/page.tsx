@@ -1,5 +1,6 @@
 import { ApprovalMode, Role, TimeOffUnit } from "@prisma/client"
 import { Settings2 } from "lucide-react"
+import { RecordStats } from "@/components/employees/RecordStats"
 import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Forbidden } from "@/components/shared/Forbidden"
@@ -23,6 +24,15 @@ type Row = {
   _count: { allocations: number; requests: number }
 }
 
+function CountChip({ value, noun }: { value: number; noun: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-xs ring-1 ring-inset ring-border/60">
+      <span className="font-semibold tabular">{value}</span>
+      <span className="text-muted-foreground">{noun}</span>
+    </span>
+  )
+}
+
 const columns: Column<Row>[] = [
   { key: "name", header: "Type", render: (r) => r.name },
   { key: "unit", header: "Unit", render: (r) => UNIT_LABEL[r.unit] },
@@ -33,20 +43,27 @@ const columns: Column<Row>[] = [
       r.requiresAllocation ? (
         <span className="font-medium text-primary">Required</span>
       ) : (
-        <span className="text-muted-foreground">No</span>
+        <span className="text-muted-foreground">Not required</span>
       ),
   },
   { key: "approval", header: "Approval", render: (r) => APPROVAL_LABEL[r.approvalMode] },
   {
     key: "paid",
     header: "Paid",
-    render: (r) => (r.isPaid ? "Yes" : <span className="text-warning">Unpaid</span>),
+    render: (r) => (r.isPaid ? "Paid" : <span className="font-medium text-warning">Unpaid</span>),
   },
   {
     key: "usage",
     header: "In Use",
     numeric: true,
-    render: (r) => r._count.allocations + r._count.requests,
+    // Both figures are the `_count` the page fetched, shown apart rather than
+    // summed so each reads as what it is.
+    render: (r) => (
+      <span className="inline-flex items-center justify-end gap-1.5">
+        <CountChip value={r._count.allocations} noun="allocations" />
+        <CountChip value={r._count.requests} noun="requests" />
+      </span>
+    ),
   },
   { key: "status", header: "Status", render: (r) => <ActiveBadge active={r.active} /> },
 ]
@@ -79,14 +96,28 @@ export default async function TimeOffTypesPage({
     orderBy: [{ active: "desc" }, { name: "asc" }],
   })
 
+  const activeCount = types.filter((t) => t.active).length
+
   return (
     <>
       <PageHeader
+        eyebrow="Time off"
         title="Time Off Types"
         subtitle="Policy rules — the unit, whether an allocation is required, and the approval flow."
       />
 
-      <ListToolbar newHref="/time-off/types/new" searchPlaceholder="Search time off types…" />
+      <ListToolbar
+        newHref="/time-off/types/new"
+        newLabel="New type"
+        searchPlaceholder="Search time off types…"
+      >
+        <RecordStats
+          stats={[
+            { label: "types", value: types.length, tone: "primary" },
+            { label: "active", value: activeCount, tone: "success" },
+          ]}
+        />
+      </ListToolbar>
 
       <DataTable
         columns={columns}
