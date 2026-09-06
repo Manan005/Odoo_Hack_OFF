@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { useSearchParamWriter } from "@/components/shared/ListToolbar"
+import { NumberTicker } from "@/components/ui/number-ticker"
 import type { PageInfo } from "@/lib/paging"
 import { cn } from "@/lib/utils"
 
@@ -29,7 +30,7 @@ function PageButton({
       onClick={() => write({ page: to === 1 ? null : String(to) })}
       className={cn(
         "inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-surface",
-        "transition-[background-color,border-color,color,transform] duration-150 ease-out-quart",
+        "transition-[background-color,border-color,color,scale] duration-150 ease-out-quart",
         disabled
           ? "cursor-not-allowed text-subtle-foreground opacity-50"
           : "text-muted-foreground hover:border-border-strong hover:bg-surface-hover hover:text-foreground active:scale-95",
@@ -42,6 +43,7 @@ function PageButton({
 
 /**
  * Table footer: the visible range, and controls to reach every other row.
+ * The range rolls in (it is a real count) and "Page x of y" fades on change.
  *
  * When everything fits on one page the controls are omitted — buttons that can
  * never do anything are just noise.
@@ -53,13 +55,14 @@ export function Pagination({ info }: { info: PageInfo }) {
 
   return (
     <div className="flex w-full items-center justify-end gap-4">
-      <span className="tabular">
-        {nf.format(info.from)}–{nf.format(info.to)} / {nf.format(info.total)}
-      </span>
+      <NumberTicker
+        value={`${nf.format(info.from)}–${nf.format(info.to)} / ${nf.format(info.total)}`}
+        delayStep={25}
+      />
 
       {!single && (
         <div className="flex items-center gap-2">
-          <span className="tabular text-subtle-foreground">
+          <span key={info.page} className="animate-fade-in tabular text-subtle-foreground">
             Page {nf.format(info.page)} of {nf.format(info.pageCount)}
           </span>
           <div className="flex items-center gap-1">

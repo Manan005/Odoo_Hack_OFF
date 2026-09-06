@@ -1,5 +1,6 @@
 import { RequestStatus, TimeOffUnit } from "@prisma/client"
 import { Wallet } from "lucide-react"
+import { RecordStats } from "@/components/employees/RecordStats"
 import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { FilterChip, ListToolbar } from "@/components/shared/ListToolbar"
@@ -11,6 +12,8 @@ import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { balanceOf } from "@/lib/timeoff/balance"
 import { formatDuration } from "@/lib/money"
+import { cn } from "@/lib/utils"
+import { REQUEST_STATUS_LABEL } from "@/lib/validation/timeoff"
 
 export const metadata = { title: "Time Off Allocations — PeoplePay360" }
 
@@ -31,7 +34,18 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
       header: "Employee",
       render: (r) => `${r.employee.firstName} ${r.employee.lastName}`,
     },
-    { key: "type", header: "Type", render: (r) => r.type.name },
+    {
+      key: "type",
+      header: "Type",
+      render: (r) => (
+        <span>
+          {r.type.name}
+          {r.validityLabel && (
+            <span className="block text-xs text-muted-foreground">{r.validityLabel}</span>
+          )}
+        </span>
+      ),
+    },
     {
       key: "allocated",
       header: "Allocated",
@@ -48,12 +62,29 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
       key: "remaining",
       header: "Remaining",
       numeric: true,
-      // Derived, never stored (BR-T5).
+      // Derived, never stored (BR-T5). The bar is the same figure as a share of
+      // what was granted — presentation, not a new number.
       render: (r) => {
         const b = balanceOf(r)
+        const exhausted = b.remaining <= 0
+        const share = b.allocated > 0 ? Math.min(1, Math.max(0, b.remaining / b.allocated)) : 0
         return (
-          <span className={b.remaining <= 0 ? "text-warning" : "font-medium"}>
-            {formatDuration(b.remaining, r.type.unit)}
+          <span className="inline-flex items-center justify-end gap-2.5">
+            <span className={exhausted ? "font-medium text-warning" : "font-medium"}>
+              {formatDuration(b.remaining, r.type.unit)}
+            </span>
+            <span
+              aria-hidden
+              className="block h-1.5 w-14 overflow-hidden rounded-full bg-surface-muted ring-1 ring-inset ring-border/50"
+            >
+              <span
+                className={cn(
+                  "block h-full origin-left rounded-full",
+                  exhausted ? "bg-warning" : "bg-primary",
+                )}
+                style={{ transform: `scaleX(${share})` }}
+              />
+            </span>
           </span>
         )
       },
@@ -65,6 +96,7 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
     base.push({
       key: "actions",
       header: "",
+      className: "text-right",
       render: (r) => <ApprovalButtons id={r.id} kind="allocation" status={r.status} />,
     })
   }
@@ -83,13 +115,14 @@ export default async function AllocationsPage({
   const { q, employeeId, typeId, status } = await searchParams
 
   const scopedEmployeeId = isHr ? employeeId : (viewer.employeeId ?? "__none__")
+  const statusFilter = status && status in RequestStatus ? (status as RequestStatus) : undefined
 
   const [allocations, filterEmployee, filterType] = await Promise.all([
     db.timeOffAllocation.findMany({
       where: {
         ...(scopedEmployeeId ? { employeeId: scopedEmployeeId } : {}),
         ...(typeId ? { typeId } : {}),
-        ...(status && status in RequestStatus ? { status: status as RequestStatus } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
         ...(q
           ? {
               OR: [
@@ -120,15 +153,21 @@ export default async function AllocationsPage({
     typeId ? db.timeOffType.findUnique({ where: { id: typeId }, select: { name: true } }) : null,
   ])
 
+  // Over the rows fetched above — nothing invented.
+  const pending = allocations.filter((a) => a.status === RequestStatus.TO_APPROVE).length
+  const approved = allocations.filter((a) => a.status === RequestStatus.APPROVED).length
+
   return (
     <>
       <PageHeader
+        eyebrow="Time off"
         title="Time Off Allocations"
         subtitle="An approved allocation is what creates available leave balance."
       />
 
       <ListToolbar
         newHref={isHr ? "/time-off/allocations/new" : undefined}
+        newLabel="New allocation"
         searchPlaceholder="Search allocations…"
         chips={
           <>
@@ -139,10 +178,19 @@ export default async function AllocationsPage({
               />
             )}
             {filterType && <FilterChip paramKey="typeId" label={`Type: ${filterType.name}`} />}
-            {status && <FilterChip paramKey="status" label={`Status: ${status}`} />}
+            {statusFilter && (
+              <FilterChip paramKey="status" label={`Status: ${REQUEST_STATUS_LABEL[statusFilter]}`} />
+            )}
           </>
         }
-      />
+      >
+        <RecordStats
+          stats={[
+            { label: "to approve", value: pending, tone: "warning" },
+            { label: "approved", value: approved, tone: "success" },
+          ]}
+        />
+      </ListToolbar>
 
       <DataTable
         columns={columnsFor(isHr)}

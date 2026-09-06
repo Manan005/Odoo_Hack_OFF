@@ -1,0 +1,325 @@
+/* login package styles — imported by src/app/globals.css. Plain classes go in @layer components; classes that need variants (hover:, md:) use @utility; @keyframes at top level. */
+
+/*
+ * Login — "the ledger writes itself".
+ *
+ * Every animation here is transform / opacity / stroke-dashoffset only, is
+ * one-shot unless noted, and reads its delay from `--lt` (set inline by the
+ * illustration so the whole scene is one timeline). The last keyframe of
+ * every animation is the final visible state, so the global reduced-motion
+ * kill switch in globals.css (1 iteration, 0.01ms) already lands on a
+ * fully drawn ledger; the explicit block at the bottom makes that certain.
+ */
+
+/* ── Keyframes ───────────────────────────────────────────────────────── */
+
+@keyframes ledger-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ledger-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ledger-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes ledger-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* The stamp lands: starts large and above the paper, settles with a thud. */
+@keyframes ledger-stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+  55% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/*
+ * Pulse: a dash 0.12 of the path long (pathLength="1") travels start → end
+ * during the first 10% of a 6s cycle, then holds invisible. The dash pattern
+ * period (2.12) is longer than the path so only one dash ever exists.
+ */
+@keyframes ledger-pulse {
+  0% {
+    stroke-dashoffset: 0.12;
+    opacity: 0;
+  }
+  1.5% {
+    opacity: 1;
+  }
+  9% {
+    opacity: 1;
+  }
+  10%,
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0;
+  }
+}
+/* Idle breathing — translate only, so nothing re-rasterises. */
+@keyframes ledger-float {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -7px, 0);
+  }
+}
+/* Headline lines rise out of a clipped box; `to` is the element's own transform. */
+@keyframes login-rise {
+  from {
+    transform: translateY(110%);
+  }
+}
+/* Brand-mark stripes rise with the payslip bars — the mark becomes the legend. */
+@keyframes login-stripe {
+  from {
+    transform: scaleY(0);
+  }
+}
+/* Rejected sign-in: one physical nudge, transform only. */
+@keyframes login-shake {
+  15%,
+  45%,
+  75% {
+    transform: translateX(-5px);
+  }
+  30%,
+  60%,
+  90% {
+    transform: translateX(5px);
+  }
+}
+
+/* ── Components ──────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Ruled-paper grain on the ink panel — static, zero runtime cost. */
+  .login-ruled {
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0 27px,
+      color-mix(in oklch, var(--color-ink-fg) 5%, transparent) 27px 28px
+    );
+    mask-image: radial-gradient(85% 75% at 50% 45%, black 25%, transparent 100%);
+  }
+
+  /* One soft glow behind the sheet, in place of the old blur blobs. */
+  .login-glow {
+    background: radial-gradient(
+      46% 42% at 50% 52%,
+      color-mix(in oklch, var(--color-primary) 22%, transparent),
+      transparent 70%
+    );
+  }
+
+  /* Two-line headline reveal. The bottom padding keeps descenders unclipped. */
+  .login-line {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.1em;
+    margin-bottom: -0.1em;
+  }
+  .login-line > span {
+    display: block;
+    animation: login-rise 0.9s var(--ease-out-quart) var(--lt, 0ms) both;
+  }
+
+  /* Pen underline beneath "working." */
+  .login-underline {
+    position: absolute;
+    left: -1%;
+    right: -1%;
+    bottom: -0.1em;
+    height: 0.3em;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .login-underline path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: ledger-draw 0.5s var(--ease-out-quart) var(--lt, 0ms) both;
+  }
+
+  /* Brand mark stripes on the panel rise in sync with the ledger bars. */
+  .login-mark > span {
+    transform-origin: bottom;
+    animation: login-stripe 0.5s var(--ease-spring) var(--lt, 0ms) both;
+  }
+  .login-mark > span:nth-child(1) {
+    --lt: 1500ms;
+  }
+  .login-mark > span:nth-child(2) {
+    --lt: 1600ms;
+  }
+  .login-mark > span:nth-child(3) {
+    --lt: 1700ms;
+  }
+
+  /* ── Ledger illustration ─────────────────────────────────────────── */
+  .ledger {
+    display: block;
+    overflow: visible;
+  }
+  .ledger text {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+  }
+  .ledger-float {
+    animation: ledger-float 7s ease-in-out 3s infinite alternate;
+  }
+  /*
+   * Pointer parallax. <Spotlight> writes --mx/--my in px relative to its
+   * own box; the middle layer drifts a little, the stamp a little more.
+   * Nothing here carries its own animation, so the transform is free.
+   */
+  .ledger-layer {
+    transition: transform 0.6s var(--ease-out-quart);
+  }
+  .ledger-layer-mid {
+    transform: translate(
+      calc((var(--mx, 50%) - 50%) * 0.018),
+      calc((var(--my, 50%) - 50%) * 0.018)
+    );
+  }
+  .ledger-layer-front {
+    transform: translate(
+      calc((var(--mx, 50%) - 50%) * 0.045),
+      calc((var(--my, 50%) - 50%) * 0.045)
+    );
+  }
+  .ledger-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: ledger-draw var(--ld, 0.6s) var(--ease-out-quart) var(--lt, 0ms) both;
+  }
+  .ledger-fade {
+    animation: ledger-fade 0.35s var(--ease-out-quart) var(--lt, 0ms) both;
+  }
+  .ledger-pop {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ledger-pop 0.45s var(--ease-spring) var(--lt, 0ms) both;
+  }
+  .ledger-bar {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: ledger-grow 0.55s var(--ease-out-quart) var(--lt, 0ms) both;
+  }
+  .ledger-bar-right {
+    transform-origin: right center;
+  }
+  .ledger-stamp {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ledger-stamp 0.5s var(--ease-spring) var(--lt, 0ms) both;
+  }
+  .ledger-pulse {
+    stroke-dasharray: 0.12 2;
+    stroke-dashoffset: 0.12;
+    stroke-linecap: round;
+    opacity: 0;
+    animation: ledger-pulse 6s linear var(--lt, 0ms) infinite;
+  }
+  /* Sign-in succeeded: the rules fire rapidly while the dashboard loads. */
+  .auth-leaving .ledger-pulse {
+    animation-duration: 1.4s;
+  }
+
+  /* ── Form ────────────────────────────────────────────────────────── */
+  .login-form-shake {
+    animation: login-shake 0.4s var(--ease-out-quart) both;
+  }
+  /* The label follows focus: colour shift plus a hairline that draws under it. */
+  .login-field label {
+    position: relative;
+    display: inline-block;
+    transition: color 0.15s var(--ease-out-quart);
+  }
+  .login-field label::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 1px;
+    background: var(--color-primary);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s var(--ease-out-quart);
+  }
+  .login-field:focus-within label {
+    color: var(--color-primary);
+  }
+  .login-field:focus-within label::after {
+    transform: scaleX(1);
+  }
+}
+
+/* ── Reduced motion: the finished ledger, nothing moving ─────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .ledger-float,
+  .ledger-layer,
+  .ledger-layer-mid,
+  .ledger-layer-front {
+    animation: none;
+    transform: none;
+    transition: none;
+  }
+  .ledger-draw,
+  .login-underline path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .ledger-fade,
+  .ledger-pop,
+  .ledger-bar,
+  .ledger-stamp,
+  .login-mark > span {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .ledger-pulse {
+    animation: none;
+    opacity: 0;
+  }
+  .login-line > span {
+    animation: none;
+    transform: none;
+  }
+  .login-form-shake {
+    animation: none;
+  }
+  .login-field label::after {
+    transition: none;
+  }
+}

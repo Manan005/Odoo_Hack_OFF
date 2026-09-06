@@ -1,5 +1,6 @@
 import { RequestStatus, TimeOffUnit } from "@prisma/client"
 import { Plane } from "lucide-react"
+import { RecordStats } from "@/components/employees/RecordStats"
 import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { FilterChip, ListToolbar } from "@/components/shared/ListToolbar"
@@ -11,6 +12,7 @@ import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 import { fmtDateCompact } from "@/lib/dates"
 import { formatDuration } from "@/lib/money"
+import { REQUEST_STATUS_LABEL } from "@/lib/validation/timeoff"
 
 export const metadata = { title: "Time Off Requests — PeoplePay360" }
 
@@ -32,13 +34,25 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
       render: (r) => `${r.employee.firstName} ${r.employee.lastName}`,
     },
     { key: "type", header: "Type", render: (r) => r.type.name },
-    { key: "start", header: "Start", render: (r) => fmtDateCompact(r.startDate) },
-    { key: "end", header: "End", render: (r) => fmtDateCompact(r.endDate) },
+    {
+      key: "period",
+      header: "Period",
+      className: "tabular",
+      render: (r) => (
+        <span>
+          {fmtDateCompact(r.startDate)}
+          <span className="text-subtle-foreground"> → </span>
+          {fmtDateCompact(r.endDate)}
+        </span>
+      ),
+    },
     {
       key: "duration",
       header: "Duration",
       numeric: true,
-      render: (r) => formatDuration(String(r.duration), r.type.unit),
+      render: (r) => (
+        <span className="font-medium">{formatDuration(String(r.duration), r.type.unit)}</span>
+      ),
     },
     { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
   ]
@@ -47,6 +61,7 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
     base.push({
       key: "actions",
       header: "",
+      className: "text-right",
       render: (r) => <ApprovalButtons id={r.id} kind="request" status={r.status} />,
     })
   }
@@ -71,13 +86,14 @@ export default async function RequestsPage({
   const { q, employeeId, typeId, status, myTeam } = await searchParams
 
   const scopedEmployeeId = isHr ? employeeId : (viewer.employeeId ?? "__none__")
+  const statusFilter = status && status in RequestStatus ? (status as RequestStatus) : undefined
 
   const [requests, filterEmployee, filterType] = await Promise.all([
     db.timeOffRequest.findMany({
       where: {
         ...(scopedEmployeeId ? { employeeId: scopedEmployeeId } : {}),
         ...(typeId ? { typeId } : {}),
-        ...(status && status in RequestStatus ? { status: status as RequestStatus } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
         ...(myTeam === "1" && viewer.employeeId
           ? { employee: { managerId: viewer.employeeId } }
           : {}),
@@ -112,15 +128,21 @@ export default async function RequestsPage({
     typeId ? db.timeOffType.findUnique({ where: { id: typeId }, select: { name: true } }) : null,
   ])
 
+  // Over the rows fetched above — nothing invented.
+  const pending = requests.filter((r) => r.status === RequestStatus.TO_APPROVE).length
+  const approved = requests.filter((r) => r.status === RequestStatus.APPROVED).length
+
   return (
     <>
       <PageHeader
+        eyebrow="Time off"
         title="Time Off Requests"
         subtitle="Approving a request consumes its allocation; refusing releases the days back."
       />
 
       <ListToolbar
         newHref="/time-off/requests/new"
+        newLabel="New request"
         searchPlaceholder="Search requests…"
         chips={
           <>
@@ -131,11 +153,20 @@ export default async function RequestsPage({
               />
             )}
             {filterType && <FilterChip paramKey="typeId" label={`Type: ${filterType.name}`} />}
-            {status && <FilterChip paramKey="status" label={`Status: ${status}`} />}
+            {statusFilter && (
+              <FilterChip paramKey="status" label={`Status: ${REQUEST_STATUS_LABEL[statusFilter]}`} />
+            )}
             {myTeam === "1" && <FilterChip paramKey="myTeam" label="My Team" />}
           </>
         }
-      />
+      >
+        <RecordStats
+          stats={[
+            { label: "to approve", value: pending, tone: "warning" },
+            { label: "approved", value: approved, tone: "success" },
+          ]}
+        />
+      </ListToolbar>
 
       <DataTable
         columns={columnsFor(isHr)}

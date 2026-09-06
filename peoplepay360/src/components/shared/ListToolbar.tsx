@@ -152,7 +152,8 @@ export function ListToolbar({
   views?: Array<{ key: string; label: string }>
   children?: React.ReactNode
 }) {
-  const newClass = cn(buttonVariants({ variant: "primary", size: "md" }), "pl-3")
+  // `icon-spin-hover`: the Plus turns a quarter on hover — "this opens something".
+  const newClass = cn(buttonVariants({ variant: "primary", size: "md" }), "icon-spin-hover pl-3")
   return (
     <div className="mb-3 flex min-h-9 flex-wrap items-center gap-2">
       {newHref && (

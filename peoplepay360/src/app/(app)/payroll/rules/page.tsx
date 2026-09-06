@@ -1,5 +1,7 @@
 import { ComputationType, PercentageBase, Role, RuleCategory } from "@prisma/client"
 import { Calculator } from "lucide-react"
+import { CopyChip } from "@/components/payroll/CopyChip"
+import { CATEGORY_CHIP, CATEGORY_RAIL, ruleExpression } from "@/components/payroll/rule-describe"
 import { Column, DataTable, RowCount } from "@/components/shared/DataTable"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { FilterChip, ListToolbar } from "@/components/shared/ListToolbar"
@@ -8,6 +10,7 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { ActiveBadge } from "@/components/shared/StatusBadge"
 import { canEditSalaryConfig, pageAllows } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
+import { cn } from "@/lib/utils"
 import { CATEGORY_LABEL } from "@/lib/validation/payroll"
 
 export const metadata = { title: "Salary Rules — PeoplePay360" }
@@ -28,42 +31,51 @@ type Row = {
   structure: { name: string }
 }
 
-const describe = (r: Row): string => {
-  switch (r.computationType) {
-    case ComputationType.FIXED:
-      return `fixed ${r.amount}`
-    case ComputationType.PERCENTAGE: {
-      const base =
-        r.percentageBase === PercentageBase.RULE_CODE
-          ? (r.baseRuleCode ?? "?")
-          : r.percentageBase === PercentageBase.CONTRACT_WAGE
-            ? "wage"
-            : (r.percentageBase ?? "wage")
-      return `${r.percentage}% of ${base}`
-    }
-    case ComputationType.FORMULA:
-      return r.formula ?? "formula"
-    default:
-      return "—"
-  }
-}
-
 const columns: Column<Row>[] = [
-  { key: "sequence", header: "Seq", numeric: true, render: (r) => r.sequence },
+  {
+    key: "sequence",
+    header: "Seq",
+    numeric: true,
+    className: "w-16",
+    render: (r) => (
+      <span className="relative inline-flex items-center pl-2.5 font-semibold tabular text-muted-foreground">
+        <span
+          aria-hidden
+          className={cn("absolute inset-y-0 left-0 w-[3px] rounded-full", CATEGORY_RAIL[r.category])}
+        />
+        {r.sequence}
+      </span>
+    ),
+  },
   { key: "name", header: "Rule Name", render: (r) => r.name },
   {
     key: "code",
     header: "Code",
-    render: (r) => <span className="font-mono text-[13px]">{r.code}</span>,
+    render: (r) => (
+      <span className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground ring-1 ring-inset ring-border/70">
+        {r.code}
+      </span>
+    ),
   },
-  { key: "category", header: "Category", render: (r) => CATEGORY_LABEL[r.category] },
+  {
+    key: "category",
+    header: "Category",
+    render: (r) => (
+      <span
+        className={cn(
+          "rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+          CATEGORY_CHIP[r.category],
+        )}
+      >
+        {CATEGORY_LABEL[r.category]}
+      </span>
+    ),
+  },
   { key: "structure", header: "Structure", render: (r) => r.structure.name },
   {
     key: "computation",
     header: "Computation",
-    render: (r) => (
-      <span className="font-mono text-[12px] text-muted-foreground">{describe(r)}</span>
-    ),
+    render: (r) => <CopyChip text={ruleExpression(r)} className="max-w-[18rem]" />,
   },
   { key: "active", header: "Active", render: (r) => <ActiveBadge active={r.active} /> },
 ]

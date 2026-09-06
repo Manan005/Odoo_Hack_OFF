@@ -2,10 +2,17 @@ import { cn } from "@/lib/utils"
 
 type Tone = "success" | "warning" | "danger" | "info" | "primary" | "neutral"
 
+/*
+ * Success and danger carry a soft outer glow — the two states a reviewer is
+ * scanning a list for. `--glow` feeds the arbitrary shadow so the ring
+ * (also a box-shadow layer) composes with it instead of being replaced.
+ */
 const TONE: Record<Tone, string> = {
-  success: "bg-success-subtle text-success ring-success/20",
+  success:
+    "bg-success-subtle text-success ring-success/20 shadow-[0_0_10px_-2px_var(--glow)] [--glow:color-mix(in_oklch,var(--color-success)_45%,transparent)]",
   warning: "bg-warning-subtle text-warning ring-warning/25",
-  danger: "bg-danger-subtle text-danger ring-danger/20",
+  danger:
+    "bg-danger-subtle text-danger ring-danger/20 shadow-[0_0_10px_-2px_var(--glow)] [--glow:color-mix(in_oklch,var(--color-danger)_45%,transparent)]",
   info: "bg-info-subtle text-info ring-info/20",
   primary: "bg-primary-subtle text-primary ring-primary/20",
   neutral: "bg-neutral-subtle text-neutral ring-neutral/20",
@@ -61,18 +68,28 @@ const MAP: Record<string, { tone: Tone; label: string; hollow?: boolean; live?: 
 export function StatusBadge({
   status,
   className,
+  stamp,
 }: {
   status: string | null | undefined
   className?: string
+  /**
+   * Record-header use only (never table cells): the badge is keyed by status
+   * and lands like an ink stamp each time the state machine advances —
+   * Draft → Computed → Validated → Paid gets a visual event.
+   */
+  stamp?: boolean
 }) {
   if (!status) return <span className="text-muted-foreground">—</span>
   const entry = MAP[status] ?? { tone: "neutral" as Tone, label: status }
 
   return (
     <span
+      key={stamp ? status : undefined}
+      title={`Status: ${entry.label}`}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
         TONE[entry.tone],
+        stamp && "badge-stamp",
         className,
       )}
     >

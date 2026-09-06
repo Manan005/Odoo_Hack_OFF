@@ -1,0 +1,91 @@
+/* records package styles — imported by src/app/globals.css. Plain classes go in @layer components; classes that need variants (hover:, md:) use @utility; @keyframes at top level. */
+
+@layer components {
+  /* Tab-panel crossfade. Short, because it fires on every tab click. */
+  .panel-in {
+    animation: fade-up 0.2s var(--ease-out-quart) both;
+  }
+
+  /* A tile that is "on" (checked in, live) breathes a soft success glow. */
+  .breathe {
+    animation: breathe 2.8s ease-in-out infinite;
+  }
+
+  /*
+   * Inline editor expansion. The editor mounts at 0fr via @starting-style
+   * and eases open to 1fr — the one place grid-template-rows may animate.
+   */
+  .expander {
+    display: grid;
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transition:
+      grid-template-rows 0.32s var(--ease-out-quart),
+      opacity 0.32s var(--ease-out-quart);
+  }
+  .expander > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+  @starting-style {
+    .expander {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
+
+  /* Success pop — a check that springs in once a mutation has landed. */
+  .pop-in {
+    animation: pop 0.45s var(--ease-spring) both;
+  }
+
+  /* Sticky glass action bar that floats under a form. */
+  .glass-bar {
+    background: color-mix(in oklch, var(--color-surface) 82%, transparent);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  }
+
+  /* Contract timeline: an open-ended bar dissolves to the right. */
+  .fade-right {
+    mask-image: linear-gradient(to right, black 55%, transparent 100%);
+  }
+
+  /* A figure that just changed settles into place. */
+  .settle {
+    animation: scale-in 0.25s var(--ease-out-quart) both;
+  }
+
+  /* Weekday toggle cell — press feedback and a toggled-state transition. */
+  .day-cell {
+    transition:
+      transform 0.15s var(--ease-spring),
+      background-color 0.2s var(--ease-out-quart),
+      color 0.2s var(--ease-out-quart),
+      box-shadow 0.2s var(--ease-out-quart);
+  }
+  .day-cell:active {
+    transform: scale(0.92);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-success) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in oklch, var(--color-success) 14%, transparent);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

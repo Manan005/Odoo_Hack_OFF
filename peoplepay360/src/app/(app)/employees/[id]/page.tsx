@@ -1,10 +1,21 @@
-import { Role } from "@prisma/client"
-import { CalendarClock, Clock, FileText, Plane, Wallet } from "lucide-react"
+import {
+  Briefcase,
+  Building2,
+  CalendarClock,
+  Clock,
+  FileText,
+  Plane,
+  UserRound,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react"
+import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import {
   EmployeeForm,
   type EmployeeFormValues,
 } from "@/components/employees/EmployeeForm"
+import { Spotlight } from "@/components/motion/Spotlight"
 import { FormHeader } from "@/components/shared/FormHeader"
 import { SmartButtonBar } from "@/components/shared/SmartButtonBar"
 import { ActiveBadge } from "@/components/shared/StatusBadge"
@@ -12,6 +23,67 @@ import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
 import { db } from "@/lib/db"
 
 const toDateInput = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "")
+
+interface InfoTile {
+  label: string
+  value: string | null
+  icon: LucideIcon
+  href: string | null
+}
+
+/**
+ * The four relationships an employee record hangs off, as cursor-lit tiles.
+ * Each opens the related record or the roster filtered to it; nothing here
+ * is a count, so nothing needs a query.
+ */
+function InfoTiles({ tiles }: { tiles: InfoTile[] }) {
+  return (
+    <div className="stagger mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {tiles.map((t) => {
+        const Icon = t.icon
+        const inner = (
+          <>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted-foreground ring-1 ring-inset ring-border/60 transition-colors duration-200 group-hover:bg-primary-subtle group-hover:text-primary">
+              <Icon className="h-4 w-4" aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {t.label}
+              </span>
+              <span className="block truncate text-sm font-medium">
+                {t.value ?? <span className="font-normal text-muted-foreground">—</span>}
+              </span>
+            </span>
+          </>
+        )
+        return (
+          // The stagger entrance lives on this wrapper so the tile's own hover
+          // transform is not pinned by the animation's fill-mode.
+          <div key={t.label} className="min-w-0">
+            <Spotlight
+              className={
+                "group relative h-full overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-card " +
+                "transition-[transform,box-shadow,border-color] duration-200 ease-out-quart " +
+                (t.href ? "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-raise" : "")
+              }
+            >
+              {t.href ? (
+                <Link
+                  href={t.href}
+                  className="flex items-center gap-3 rounded-2xl p-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 p-3.5">{inner}</div>
+              )}
+            </Spotlight>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export default async function EmployeeDetailPage({
   params,
@@ -106,6 +178,40 @@ export default async function EmployeeDetailPage({
     joiningDate: toDateInput(employee.joiningDate),
   }
 
+  // Links only where the target list exists and the viewer may open it.
+  const tiles: InfoTile[] = [
+    {
+      label: "Department",
+      value: employee.department?.name ?? null,
+      icon: Building2,
+      href: isHr && employee.department ? `/employees?departmentId=${employee.department.id}` : null,
+    },
+    {
+      label: "Job position",
+      value: employee.jobPosition?.name ?? null,
+      icon: Briefcase,
+      href:
+        isHr && employee.jobPosition ? `/employees?jobPositionId=${employee.jobPosition.id}` : null,
+    },
+    {
+      label: "Manager",
+      value: employee.manager
+        ? `${employee.manager.firstName} ${employee.manager.lastName}`
+        : null,
+      icon: UserRound,
+      href: isHr && employee.manager ? `/employees/${employee.manager.id}` : null,
+    },
+    {
+      label: "Working schedule",
+      value: employee.workingSchedule?.name ?? null,
+      icon: CalendarClock,
+      href:
+        isHr && employee.workingSchedule
+          ? `/working-schedules/${employee.workingSchedule.id}`
+          : null,
+    },
+  ]
+
   return (
     <>
       <FormHeader
@@ -113,8 +219,9 @@ export default async function EmployeeDetailPage({
         backHref={isHr ? "/employees" : "/"}
         title={name}
         subtitle={
-          [employee.jobPosition?.name, employee.department?.name].filter(Boolean).join(" • ") ||
-          undefined
+          [employee.employeeCode, employee.jobPosition?.name, employee.department?.name]
+            .filter(Boolean)
+            .join(" • ") || undefined
         }
         avatar={initials}
         badge={<ActiveBadge active={employee.active} />}
@@ -150,13 +257,7 @@ export default async function EmployeeDetailPage({
         }
       />
 
-      {employee.workingSchedule && (
-        <p className="mb-4 inline-flex items-center gap-1.5 rounded-lg bg-surface-muted/80 px-2.5 py-1.5 text-xs text-muted-foreground ring-1 ring-inset ring-border/60">
-          <CalendarClock className="h-3.5 w-3.5" aria-hidden />
-          Working schedule ·{" "}
-          <span className="font-medium text-foreground">{employee.workingSchedule.name}</span>
-        </p>
-      )}
+      <InfoTiles tiles={tiles} />
 
       <EmployeeForm
         initial={initial}

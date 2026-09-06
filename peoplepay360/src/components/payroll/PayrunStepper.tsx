@@ -14,6 +14,10 @@ const INDEX: Record<PayrunStatus, number> = {
 /**
  * The payrun state machine as a progress rail. Purely presentational — the
  * transitions themselves are enforced server-side in payrun-service.
+ *
+ * The rail fills to the current state on mount and a highlight travels its
+ * length once. When the run is paid the rail turns success-green and the
+ * final node pops in with a soft ring.
  */
 export function PayrunStepper({
   status,
@@ -25,18 +29,22 @@ export function PayrunStepper({
   allSent: boolean
   className?: string
 }) {
-  const current = status === PayrunStatus.PAID && allSent ? 4 : INDEX[status]
+  const paid = status === PayrunStatus.PAID
+  const current = paid && allSent ? 4 : INDEX[status]
   const progress = current / (STEPS.length - 1)
 
   return (
     <ol className={cn("relative flex items-start justify-between", className)} aria-label="Payrun progress">
       <span
         aria-hidden
-        className="absolute left-[10px] right-[10px] top-[9px] h-0.5 rounded-full bg-border/80"
+        className="absolute left-[10px] right-[10px] top-[8.5px] h-[3px] rounded-full bg-border/80"
       />
       <span
         aria-hidden
-        className="absolute left-[10px] top-[9px] h-0.5 origin-left animate-rail rounded-full bg-primary"
+        className={cn(
+          "pay-rail-fill left-[10px] top-[8.5px] h-[3px] rounded-full",
+          paid ? "bg-success" : "bg-primary",
+        )}
         style={{ width: `calc((100% - 20px) * ${progress})` }}
       />
       {STEPS.map((label, i) => {
@@ -51,13 +59,18 @@ export function PayrunStepper({
             <span
               className={cn(
                 "relative flex h-5 w-5 items-center justify-center rounded-full ring-4 ring-surface transition-colors duration-300",
-                done && "bg-primary text-primary-fg",
-                active && "bg-surface text-primary shadow-[inset_0_0_0_2px_var(--color-primary)]",
+                done && (paid ? "bg-success text-primary-fg" : "bg-primary text-primary-fg"),
+                active &&
+                  !paid &&
+                  "bg-surface text-primary shadow-[inset_0_0_0_2px_var(--color-primary)]",
+                active && paid && "pay-node-pop pay-node-ring bg-success text-primary-fg",
                 !done && !active && "bg-surface shadow-[inset_0_0_0_2px_var(--color-border)]",
               )}
             >
-              {done && <Check className="h-3 w-3" strokeWidth={3} aria-hidden />}
-              {active && (
+              {(done || (active && paid)) && (
+                <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+              )}
+              {active && !paid && (
                 <>
                   <span
                     aria-hidden
@@ -70,7 +83,13 @@ export function PayrunStepper({
             <span
               className={cn(
                 "text-[11px] font-medium",
-                active ? "text-primary" : done ? "text-foreground" : "text-subtle-foreground",
+                active
+                  ? paid
+                    ? "text-success"
+                    : "text-primary"
+                  : done
+                    ? "text-foreground"
+                    : "text-subtle-foreground",
               )}
             >
               {label}

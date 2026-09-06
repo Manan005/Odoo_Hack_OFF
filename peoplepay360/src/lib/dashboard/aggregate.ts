@@ -2,9 +2,11 @@ import {
   AttendanceStatus,
   ContractStatus,
   EmployeeType,
+  PayrunStatus,
   PayslipStatus,
   Prisma,
   RequestStatus,
+  WarningSeverity,
   Weekday,
 } from "@prisma/client"
 import { db } from "@/lib/db"
@@ -43,6 +45,8 @@ const num = (v: Prisma.Decimal | number | null | undefined) => Number(v ?? 0)
 export interface Kpis {
   totalNet: number
   netDeltaPct: number | null
+  /** Net of the previous calendar month — what the delta is measured against. */
+  prevNet: number
   payslipsGenerated: number
   payslipsPaid: number
   payslipsPending: number
@@ -59,6 +63,7 @@ export async function getKpis(f: DashboardFilters): Promise<Kpis> {
     return {
       totalNet: 0,
       netDeltaPct: null,
+      prevNet: 0,
       payslipsGenerated: 0,
       payslipsPaid: 0,
       payslipsPending: 0,
@@ -135,6 +140,7 @@ export async function getKpis(f: DashboardFilters): Promise<Kpis> {
   return {
     totalNet,
     netDeltaPct,
+    prevNet,
     payslipsGenerated,
     payslipsPaid,
     payslipsPending: payslipsGenerated - payslipsPaid,
@@ -481,4 +487,182 @@ export async function getDepartmentOverview(
   return [...totals.entries()]
     .map(([department, v]) => ({ department, ...v }))
     .sort((a, b) => b.monthlySalary - a.monthlySalary)
+}
+
+// ───────────────────────── Latest payslip period ─────────────────────────
+
+/**
+ * The newest calendar month that has a payslip for the company, as `YYYY-MM`.
+ * The dashboard defaults to it so the first paint is never a month of zeros.
+ */
+export async function getLatestPayslipPeriod(companyId: string): Promise<string | null> {
+  const latest = await db.payslip.findFirst({
+    where: { payrun: { companyId } },
+    orderBy: { periodStart: "desc" },
+    select: { periodStart: true },
+  })
+  if (!latest) return null
+  const d = latest.periodStart
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+}
+
+// ─────────────────────────── Period payrun ───────────────────────────
+
+export interface PeriodPayrun {
+  id: string
+  name: string
+  status: PayrunStatus
+  payslips: number
+  /** Every payslip in the run has been emailed — the stepper's fifth step. */
+  allSent: boolean
+}
+
+/** The payrun covering the selected period, or null when none exists yet. */
+export async function getPeriodPayrun(f: DashboardFilters): Promise<PeriodPayrun | null> {
+  const payrun = await db.payrun.findFirst({
+    where: {
+      companyId: f.companyId,
+      periodStart: { gte: f.periodStart },
+      periodEnd: { lte: f.periodEnd },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, status: true, _count: { select: { payslips: true } } },
+  })
+  if (!payrun) return null
+
+  const unsent = await db.payslip.count({ where: { payrunId: payrun.id, sentAt: null } })
+  return {
+    id: payrun.id,
+    name: payrun.name,
+    status: payrun.status,
+    payslips: payrun._count.payslips,
+    allSent: payrun._count.payslips > 0 && unsent === 0,
+  }
+}
+
+// ─────────────────────────── Net composition ───────────────────────────
+
+export interface NetComposition {
+  basic: number
+  allowances: number
+  gross: number
+  deductions: number
+  net: number
+  payslips: number
+}
+
+/**
+ * Summed payslip roll-ups for the period: basic + allowances build the gross,
+ * deductions come off it, net is what remains. The three-stripe brand mark
+ * is literally the legend for this band.
+ */
+export async function getNetComposition(f: DashboardFilters): Promise<NetComposition> {
+  const employeeIds = await scopedEmployeeIds(f)
+  if (employeeIds.length === 0) {
+    return { basic: 0, allowances: 0, gross: 0, deductions: 0, net: 0, payslips: 0 }
+  }
+
+  const agg = await db.payslip.aggregate({
+    where: {
+      employeeId: { in: employeeIds },
+      periodStart: { gte: f.periodStart },
+      periodEnd: { lte: f.periodEnd },
+    },
+    _sum: { basic: true, allowances: true, gross: true, deductions: true, net: true },
+    _count: true,
+  })
+
+  return {
+    basic: num(agg._sum.basic),
+    allowances: num(agg._sum.allowances),
+    gross: num(agg._sum.gross),
+    deductions: num(agg._sum.deductions),
+    net: num(agg._sum.net),
+    payslips: agg._count,
+  }
+}
+
+// ───────────────────────────── Model counts ─────────────────────────────
+
+export interface ModelCounts {
+  employees: number
+  contracts: number
+  payslips: number
+  attendance: number
+  timeOff: number
+}
+
+/**
+ * The five row counts behind the page, scoped by the same filters as every
+ * other figure — the cheapest proof that nothing here is a constant.
+ */
+export async function getModelCounts(f: DashboardFilters): Promise<ModelCounts> {
+  const employeeIds = await scopedEmployeeIds(f)
+  if (employeeIds.length === 0) {
+    return { employees: 0, contracts: 0, payslips: 0, attendance: 0, timeOff: 0 }
+  }
+
+  const [employees, contracts, payslips, attendance, timeOff] = await Promise.all([
+    db.employee.count({ where: { id: { in: employeeIds }, active: true } }),
+    db.contract.count({
+      where: { employeeId: { in: employeeIds }, status: ContractStatus.RUNNING },
+    }),
+    db.payslip.count({
+      where: {
+        employeeId: { in: employeeIds },
+        periodStart: { gte: f.periodStart },
+        periodEnd: { lte: f.periodEnd },
+      },
+    }),
+    db.attendance.count({
+      where: {
+        employeeId: { in: employeeIds },
+        checkIn: { gte: f.periodStart, lte: f.periodEnd },
+      },
+    }),
+    db.timeOffRequest.count({
+      where: {
+        employeeId: { in: employeeIds },
+        status: RequestStatus.APPROVED,
+        startDate: { lte: f.periodEnd },
+        endDate: { gte: f.periodStart },
+      },
+    }),
+  ])
+
+  return { employees, contracts, payslips, attendance, timeOff }
+}
+
+// ───────────────────────── Warning severity counts ─────────────────────────
+
+export interface WarningSeverityCounts {
+  blocking: number
+  warning: number
+  info: number
+}
+
+/**
+ * Grouped counts for the alerts header. The alerts list itself is capped at
+ * twelve rows, so totals must never be derived from it.
+ */
+export async function getWarningSeverityCounts(
+  f: DashboardFilters,
+): Promise<WarningSeverityCounts> {
+  const grouped = await db.payrollWarning.groupBy({
+    by: ["severity"],
+    where: {
+      payrun: {
+        companyId: f.companyId,
+        periodStart: { gte: f.periodStart },
+        periodEnd: { lte: f.periodEnd },
+      },
+    },
+    _count: true,
+  })
+  const by = new Map(grouped.map((g) => [g.severity, g._count]))
+  return {
+    blocking: by.get(WarningSeverity.BLOCKING) ?? 0,
+    warning: by.get(WarningSeverity.WARNING) ?? 0,
+    info: by.get(WarningSeverity.INFO) ?? 0,
+  }
 }

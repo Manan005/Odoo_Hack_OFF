@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import Link from "next/link"
+import { NumberTicker } from "@/components/ui/number-ticker"
 import { cn } from "@/lib/utils"
 
 export interface SmartButton {
@@ -10,8 +11,9 @@ export interface SmartButton {
 }
 
 /**
- * Counts are live database queries, never hardcoded (AC-M1-2). Each button
- * opens the related list already filtered to this record (AC-M1-3).
+ * Counts are live database queries, never hardcoded (AC-M1-2) — so they roll
+ * in like every other real number in the app. Each button opens the related
+ * list already filtered to this record (AC-M1-3).
  */
 export function SmartButtonBar({ buttons }: { buttons: SmartButton[] }) {
   return (
@@ -22,7 +24,7 @@ export function SmartButtonBar({ buttons }: { buttons: SmartButton[] }) {
           href={href}
           className={cn(
             "group inline-flex items-center gap-2 rounded-xl border border-border/70 bg-surface px-3 py-2 text-sm",
-            "transition-[transform,box-shadow,border-color,color] duration-200 ease-out-quart",
+            "transition-[translate,box-shadow,border-color,color] duration-200 ease-out-quart",
             "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-raise active:translate-y-0",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
             count === 0 && "text-muted-foreground",
@@ -33,8 +35,8 @@ export function SmartButtonBar({ buttons }: { buttons: SmartButton[] }) {
             aria-hidden
           />
           {label}
-          <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-xs font-semibold tabular transition-colors duration-150 group-hover:bg-primary-subtle group-hover:text-primary">
-            {count}
+          <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-xs font-semibold transition-colors duration-150 group-hover:bg-primary-subtle group-hover:text-primary">
+            <NumberTicker value={String(count)} delayStep={60} />
           </span>
         </Link>
       ))}

@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client"
 import { upsertJobPosition } from "@/actions/employee.actions"
+import { RecordStats } from "@/components/employees/RecordStats"
 import { SimpleNameList } from "@/components/employees/SimpleNameList"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
@@ -20,12 +21,17 @@ export default async function JobPositionsPage() {
   return (
     <>
       <PageHeader
+        eyebrow="People"
         title="Job Positions"
         subtitle="Positions appear on the employee record and on every contract."
+        actions={
+          <RecordStats stats={[{ label: "positions", value: positions.length, tone: "primary" }]} />
+        }
       />
       <SimpleNameList
         entityLabel="Job Position"
         save={upsertJobPosition}
+        countHrefBase="/employees?jobPositionId="
         rows={positions.map((p) => ({
           id: p.id,
           name: p.name,

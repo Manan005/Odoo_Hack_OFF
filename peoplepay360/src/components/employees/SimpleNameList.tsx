@@ -1,9 +1,11 @@
 "use client"
 
-import { Pencil, Plus } from "lucide-react"
+import { Layers, Pencil, Plus } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { EmptyState } from "@/components/shared/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Field, Input, Select } from "@/components/ui/field"
 import { Surface } from "@/components/ui/surface"
@@ -14,6 +16,7 @@ export interface SimpleRow {
   name: string
   managerId?: string | null
   managerName?: string | null
+  /** A live `_count` from the page — never computed here. */
   employeeCount: number
 }
 
@@ -25,11 +28,14 @@ export function SimpleNameList({
   rows,
   managers,
   entityLabel,
+  countHrefBase,
   save,
 }: {
   rows: SimpleRow[]
   managers?: Array<{ id: string; name: string }>
   entityLabel: string
+  /** Prefix for the count chip link, e.g. `/employees?departmentId=` — the row id is appended. */
+  countHrefBase?: string
   save: (input: {
     id?: string
     name: string
@@ -61,7 +67,7 @@ export function SimpleNameList({
     setError(null)
     startTransition(async () => {
       const result = await save({
-        id: editingId === "new" ? undefined : editingId!,
+        id: editingId && editingId !== "new" ? editingId : undefined,
         name,
         ...(managers ? { managerId: managerId || null } : {}),
       })
@@ -76,42 +82,71 @@ export function SimpleNameList({
     })
   }
 
+  // Mounted inside `.expander`, which opens from 0fr to 1fr via @starting-style.
   const editor = (
-    <div className="flex origin-top animate-scale-in flex-wrap items-end gap-3 rounded-xl border border-primary/30 bg-primary-subtle/30 p-3">
-      <Field label="Name" htmlFor="name" error={error ?? undefined} className="min-w-56">
-        <Input
-          id="name"
-          autoFocus
-          value={name}
-          error={Boolean(error)}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={`${entityLabel} name`}
-        />
-      </Field>
-      {managers && (
-        <Field label="Manager" htmlFor="managerId" className="min-w-56">
-          <Select
-            id="managerId"
-            value={managerId}
-            onChange={(e) => setManagerId(e.target.value)}
-          >
-            <option value="">—</option>
-            {managers.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      )}
-      <Button size="sm" onClick={submit} loading={pending} loadingText="Saving…">
-        Save
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} disabled={pending}>
-        Cancel
-      </Button>
+    <div className="expander">
+      <div>
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-primary/30 bg-primary-subtle/30 p-3">
+          <Field label="Name" htmlFor="name" error={error ?? undefined} className="min-w-56">
+            <Input
+              id="name"
+              autoFocus
+              value={name}
+              error={Boolean(error)}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit()
+                if (e.key === "Escape") setEditingId(null)
+              }}
+              placeholder={`${entityLabel} name`}
+            />
+          </Field>
+          {managers && (
+            <Field label="Manager" htmlFor="managerId" className="min-w-56">
+              <Select
+                id="managerId"
+                value={managerId}
+                onChange={(e) => setManagerId(e.target.value)}
+              >
+                <option value="">—</option>
+                {managers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Button size="sm" onClick={submit} loading={pending} loadingText="Saving…">
+            Save
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} disabled={pending}>
+            Cancel
+          </Button>
+        </div>
+      </div>
     </div>
   )
+
+  const countChip = (row: SimpleRow) => {
+    const chip = (
+      <span className="inline-flex min-w-7 items-center justify-center rounded-md bg-surface-muted px-1.5 py-0.5 text-xs font-semibold tabular ring-1 ring-inset ring-border/60 transition-colors duration-150 group-hover/count:bg-primary-subtle group-hover/count:text-primary">
+        {row.employeeCount}
+      </span>
+    )
+    if (!countHrefBase || row.employeeCount === 0) return chip
+    return (
+      <Link
+        href={`${countHrefBase}${row.id}`}
+        className="group/count inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        title={`Open the ${row.employeeCount} employees in ${row.name}`}
+      >
+        {chip}
+      </Link>
+    )
+  }
+
+  const colSpan = managers ? 4 : 3
 
   return (
     <div className="space-y-3">
@@ -145,18 +180,27 @@ export function SimpleNameList({
           <tbody className="stagger-rows">
             {rows.length === 0 && (
               <tr>
-                <td
-                  colSpan={managers ? 4 : 3}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
-                >
-                  No {entityLabel.toLowerCase()}s yet.
+                <td colSpan={colSpan}>
+                  <EmptyState
+                    icon={Layers}
+                    title={`No ${entityLabel.toLowerCase()}s yet`}
+                    description={`Add the first ${entityLabel.toLowerCase()} — it appears on employee records as soon as it is saved.`}
+                    action={
+                      editingId !== "new" ? (
+                        <Button size="sm" variant="soft" onClick={startNew}>
+                          <Plus className="h-3.5 w-3.5" aria-hidden />
+                          New {entityLabel.toLowerCase()}
+                        </Button>
+                      ) : undefined
+                    }
+                  />
                 </td>
               </tr>
             )}
             {rows.map((row) =>
               editingId === row.id ? (
                 <tr key={row.id}>
-                  <td colSpan={managers ? 4 : 3} className="p-3">
+                  <td colSpan={colSpan} className="p-3">
                     {editor}
                   </td>
                 </tr>
@@ -173,11 +217,7 @@ export function SimpleNameList({
                       {row.managerName ?? "—"}
                     </td>
                   )}
-                  <td className="px-4 py-2.5 text-right text-sm tabular">
-                    <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-xs font-semibold">
-                      {row.employeeCount}
-                    </span>
-                  </td>
+                  <td className="px-4 py-2.5 text-right text-sm tabular">{countChip(row)}</td>
                   <td className="px-4 py-2.5 text-right">
                     <button
                       type="button"

@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils"
 /**
  * Brand mark: three ledger stripes — basic (primary), allowance (success),
  * deduction (danger) — the same colours the payslip breakdown uses.
+ * The `logo-stripe` hooks let shell.css bob the stripes while any island
+ * link is mid-navigation (`.nav-island:has([data-pending="true"])`).
  */
 export function LogoMark({
   className,
@@ -17,14 +19,14 @@ export function LogoMark({
     <span
       aria-hidden
       className={cn(
-        "group/mark relative inline-flex h-8 w-8 items-end justify-center gap-[3px] overflow-hidden rounded-[10px] pb-[7px]",
+        "logo-mark group/mark relative inline-flex h-8 w-8 items-end justify-center gap-[3px] overflow-hidden rounded-[10px] pb-[7px]",
         inverted ? "bg-ink-fg" : "bg-foreground",
         className,
       )}
     >
-      <span className="h-[9px] w-[3px] rounded-full bg-chart-1 transition-transform duration-300 ease-spring group-hover:-translate-y-0.5" />
-      <span className="h-[15px] w-[3px] rounded-full bg-chart-5 transition-transform duration-300 ease-spring [transition-delay:40ms] group-hover:-translate-y-1" />
-      <span className="h-[12px] w-[3px] rounded-full bg-chart-4 transition-transform duration-300 ease-spring [transition-delay:80ms] group-hover:-translate-y-0.5" />
+      <span className="logo-stripe h-[9px] w-[3px] rounded-full bg-chart-1 transition-transform duration-300 ease-spring group-hover:-translate-y-0.5" />
+      <span className="logo-stripe h-[15px] w-[3px] rounded-full bg-chart-5 transition-transform duration-300 ease-spring [transition-delay:40ms] group-hover:-translate-y-1" />
+      <span className="logo-stripe h-[12px] w-[3px] rounded-full bg-chart-4 transition-transform duration-300 ease-spring [transition-delay:80ms] group-hover:-translate-y-0.5" />
     </span>
   )
 }
