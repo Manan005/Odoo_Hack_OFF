@@ -1,8 +1,9 @@
 "use client"
 
-import { LogIn, LogOut, Timer } from "lucide-react"
+import { AttendanceStatus } from "@prisma/client"
+import { LogIn, LogOut, RotateCcw, Timer, UserX } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useSyncExternalStore, useTransition } from "react"
+import { useState, useSyncExternalStore, useTransition } from "react"
 import { toast } from "sonner"
 import { checkIn, checkOut } from "@/actions/attendance.actions"
 import { Button } from "@/components/ui/button"
@@ -64,40 +65,86 @@ function ElapsedClock({ since }: { since: Date }) {
   )
 }
 
-export function CheckInOutWidget({
-  today,
-}: {
-  today: { id: string; checkIn: Date; checkOut: Date | null; workedHours: string } | null
-}) {
+export interface TodayRecord {
+  id: string
+  checkIn: Date
+  checkOut: Date | null
+  workedHours: string
+  status: AttendanceStatus
+}
+
+/**
+ * Today's record has four states and the two buttons are true in each:
+ *
+ *   none    → Check in starts the day.
+ *   live    → Check out closes it (the clock runs).
+ *   done    → Check in again resumes the same record; hours recount from the
+ *             first check-in at the next check-out (BR-A1).
+ *   absent  → Check in turns the absence into a presence from now.
+ *
+ * One record per day, always — the dashboard and payroll count rows per day.
+ */
+type State = "none" | "live" | "done" | "absent"
+
+function stateOf(today: TodayRecord | null): State {
+  if (!today) return "none"
+  if (today.status === AttendanceStatus.ABSENT) return "absent"
+  return today.checkOut ? "done" : "live"
+}
+
+export function CheckInOutWidget({ today }: { today: TodayRecord | null }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [busy, setBusy] = useState<"in" | "out" | null>(null)
 
-  const run = (action: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
+  const state = stateOf(today)
+  const live = state === "live"
+  const done = state === "done"
+
+  const doCheckIn = () => {
+    setBusy("in")
     startTransition(async () => {
-      const result = await action()
+      const result = await checkIn()
       if (result.ok) {
-        toast.success(success)
+        toast.success(result.data.resumed ? "Resumed today's attendance." : "Checked in.")
         router.refresh()
       } else {
         toast.error(result.message ?? "Something went wrong.")
       }
+      setBusy(null)
     })
+  }
 
-  const live = Boolean(today && !today.checkOut)
-  const done = Boolean(today?.checkOut)
+  const doCheckOut = () => {
+    setBusy("out")
+    startTransition(async () => {
+      const result = await checkOut()
+      if (result.ok) {
+        toast.success(`Checked out — ${formatHours(result.data.workedHours)} h recorded.`)
+        router.refresh()
+      } else {
+        toast.error(result.message ?? "Something went wrong.")
+      }
+      setBusy(null)
+    })
+  }
 
-  const caption = !today
-    ? "Not checked in yet today."
-    : live
-      ? `Checked in at ${fmtTime(today.checkIn)} — check out when you leave`
-      : "Already checked out today"
+  const caption =
+    state === "none"
+      ? "No attendance recorded yet — check in when you start."
+      : state === "live"
+        ? `Checked in at ${fmtTime(today!.checkIn)} · check out when you leave`
+        : state === "done"
+          ? `Out at ${fmtTime(today!.checkOut)}. Check in again to resume today's record; hours recount at your next check-out.`
+          : "Marked absent today. Checking in turns it into a presence from now."
 
-  const checkInTitle = !today
-    ? undefined
-    : done
-      ? "Already checked out today"
-      : "Already checked in today"
-  const checkOutTitle = !today ? "Check in first" : done ? "Already checked out today" : undefined
+  const checkInTitle = live ? "Already checked in" : undefined
+  const checkOutTitle =
+    state === "none" || state === "absent"
+      ? "Check in first"
+      : done
+        ? "Already checked out — check in again to resume"
+        : undefined
 
   return (
     <Surface className="relative mb-5 overflow-hidden px-5 py-4">
@@ -114,7 +161,9 @@ export function CheckInOutWidget({
               "relative flex h-12 w-12 items-center justify-center rounded-xl ring-1 ring-inset transition-colors duration-300",
               live
                 ? "breathe bg-success-subtle text-success ring-success/25"
-                : "bg-surface-muted text-muted-foreground ring-border/70",
+                : state === "absent"
+                  ? "bg-danger-subtle text-danger ring-danger/20"
+                  : "bg-surface-muted text-muted-foreground ring-border/70",
             )}
           >
             {live && (
@@ -128,6 +177,8 @@ export function CheckInOutWidget({
             )}
             {live ? (
               <Timer className="h-5 w-5" aria-hidden />
+            ) : state === "absent" ? (
+              <UserX className="h-4 w-4" aria-hidden />
             ) : (
               <LogIn className="h-4 w-4" aria-hidden />
             )}
@@ -137,8 +188,13 @@ export function CheckInOutWidget({
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Today
             </p>
-            {!today && (
+            {state === "none" && (
               <p className="mt-0.5 text-sm text-muted-foreground">No attendance recorded yet.</p>
+            )}
+            {state === "absent" && (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Marked <span className="font-medium text-danger">absent</span> for today.
+              </p>
             )}
             {today && live && (
               <>
@@ -175,29 +231,33 @@ export function CheckInOutWidget({
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
             <Button
-              variant={today ? "outline" : "primary"}
-              disabled={pending || Boolean(today)}
-              loading={pending && !today}
-              loadingText="Checking in…"
+              variant={done ? "outline" : live ? "outline" : "primary"}
+              disabled={pending || live}
+              loading={pending && busy === "in"}
+              loadingText={done ? "Resuming…" : "Checking in…"}
               title={checkInTitle}
-              onClick={() => run(checkIn, "Checked in.")}
+              onClick={doCheckIn}
             >
-              <LogIn className="h-4 w-4" aria-hidden />
-              Check in
+              {done ? (
+                <RotateCcw className="h-4 w-4" aria-hidden />
+              ) : (
+                <LogIn className="h-4 w-4" aria-hidden />
+              )}
+              {done ? "Check in again" : "Check in"}
             </Button>
             <Button
               variant={live ? "primary" : "outline"}
               disabled={pending || !live}
-              loading={pending && live}
+              loading={pending && busy === "out"}
               loadingText="Checking out…"
               title={checkOutTitle}
-              onClick={() => run(checkOut, "Checked out.")}
+              onClick={doCheckOut}
             >
               <LogOut className="h-4 w-4" aria-hidden />
               Check out
             </Button>
           </div>
-          <p key={caption} className="animate-fade-in text-[11px] text-muted-foreground">
+          <p key={caption} className="max-w-md text-right text-[11px] text-muted-foreground animate-fade-in">
             {caption}
           </p>
         </div>

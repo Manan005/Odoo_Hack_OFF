@@ -4,6 +4,21 @@ import { parseClock, weekdayOf } from "@/lib/dates"
 /** Minutes after the scheduled start before an arrival counts as late. */
 export const LATE_GRACE_MINUTES = 15
 
+/**
+ * The calendar day containing `now`, in the server's local time zone (the
+ * office zone for this single-office app): [local midnight, next midnight).
+ * Every "today" query — the check-in widget, the self-service actions, the
+ * Today filter — must use both bounds. An open-ended `>= midnight` lets a
+ * seeded or future-dated row stand in for today and lock the buttons.
+ */
+export function todayWindow(now: Date = new Date()): { start: Date; end: Date } {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 1)
+  return { start, end }
+}
+
 /** Accepts a Prisma row directly — hours columns arrive as Decimal. */
 export interface ScheduleLineLike {
   day: Weekday

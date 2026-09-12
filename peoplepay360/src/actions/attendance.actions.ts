@@ -1,9 +1,9 @@
 "use server"
 
-import { Role } from "@prisma/client"
+import { AttendanceStatus, Role } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { ROLE_RANK, rankOf, requireAuth, requireRole } from "@/lib/auth-guard"
-import { deriveAttendance } from "@/lib/attendance/compute"
+import { deriveAttendance, todayWindow } from "@/lib/attendance/compute"
 import { db } from "@/lib/db"
 import { DomainError, ok, toActionResult, type ActionResult } from "@/lib/result"
 import { attendanceSchema } from "@/lib/validation/attendance"
@@ -76,38 +76,67 @@ export async function saveAttendance(raw: unknown): Promise<ActionResult<{ id: s
   }
 }
 
-/** Employee self-service: stamp a check-in for right now. */
-export async function checkIn(): Promise<ActionResult<{ id: string }>> {
+/** Both self-service stamps move the attendance panel on the dashboard too. */
+function revalidateAttendance() {
+  revalidatePath("/attendance")
+  revalidatePath("/payroll/dashboard")
+}
+
+/**
+ * Employee self-service: start — or resume — today's record.
+ *
+ * One record per day. A day that is already checked out is reopened and its
+ * hours recount from the first check-in at the next check-out (BR-A1 is the
+ * clock span, so the break is included). A day marked ABSENT becomes a
+ * presence from now. Neither is a manual correction, so `manuallyEdited`
+ * stays false (BR-A4 is about HR edits).
+ */
+export async function checkIn(): Promise<ActionResult<{ id: string; resumed: boolean }>> {
   try {
     const actor = await requireAuth()
     if (!actor.employeeId) {
       throw new DomainError("NO_EMPLOYEE", "Your account is not linked to an employee record.")
     }
 
-    const startOfToday = new Date()
-    startOfToday.setHours(0, 0, 0, 0)
-
-    const open = await db.attendance.findFirst({
-      where: { employeeId: actor.employeeId, checkIn: { gte: startOfToday } },
-      select: { id: true, checkOut: true },
+    const { start, end } = todayWindow()
+    const existing = await db.attendance.findFirst({
+      where: { employeeId: actor.employeeId, checkIn: { gte: start, lt: end } },
+      orderBy: { checkIn: "asc" },
+      select: { id: true, checkIn: true, checkOut: true, status: true },
     })
-    if (open) {
-      throw new DomainError(
-        "ALREADY_CHECKED_IN",
-        open.checkOut
-          ? "You have already recorded attendance today."
-          : "You are already checked in.",
-      )
-    }
 
     const lines = await scheduleLinesFor(actor.employeeId)
     const now = new Date()
-    const derived = deriveAttendance(now, null, lines)
 
-    const record = await db.attendance.create({
+    if (!existing) {
+      const derived = deriveAttendance(now, null, lines)
+      const record = await db.attendance.create({
+        data: {
+          employeeId: actor.employeeId,
+          checkIn: now,
+          checkOut: null,
+          workedHours: 0,
+          overtime: 0,
+          status: derived.status,
+        },
+        select: { id: true },
+      })
+      revalidateAttendance()
+      return ok({ id: record.id, resumed: false })
+    }
+
+    const absent = existing.status === AttendanceStatus.ABSENT
+    if (!absent && existing.checkOut === null) {
+      throw new DomainError("ALREADY_CHECKED_IN", "You are already checked in.")
+    }
+
+    // An absence has no real arrival time; a checked-out day keeps its first.
+    const checkInAt = absent ? now : existing.checkIn
+    const derived = deriveAttendance(checkInAt, null, lines)
+    const record = await db.attendance.update({
+      where: { id: existing.id },
       data: {
-        employeeId: actor.employeeId,
-        checkIn: now,
+        checkIn: checkInAt,
         checkOut: null,
         workedHours: 0,
         overtime: 0,
@@ -116,38 +145,39 @@ export async function checkIn(): Promise<ActionResult<{ id: string }>> {
       select: { id: true },
     })
 
-    revalidatePath("/attendance")
-    return ok(record)
+    revalidateAttendance()
+    return ok({ id: record.id, resumed: true })
   } catch (error) {
     return toActionResult(error, "checkIn")
   }
 }
 
-/** Employee self-service: close today's open entry. */
-export async function checkOut(): Promise<ActionResult<{ id: string }>> {
+/** Employee self-service: close today's open entry and recount its hours. */
+export async function checkOut(): Promise<ActionResult<{ id: string; workedHours: string }>> {
   try {
     const actor = await requireAuth()
     if (!actor.employeeId) {
       throw new DomainError("NO_EMPLOYEE", "Your account is not linked to an employee record.")
     }
 
-    const startOfToday = new Date()
-    startOfToday.setHours(0, 0, 0, 0)
-
+    const { start, end } = todayWindow()
     const open = await db.attendance.findFirst({
       where: {
         employeeId: actor.employeeId,
-        checkIn: { gte: startOfToday },
+        checkIn: { gte: start, lt: end },
         checkOut: null,
+        status: { not: AttendanceStatus.ABSENT },
       },
-      orderBy: { checkIn: "desc" },
-      select: { id: true, checkIn: true, status: true },
+      orderBy: { checkIn: "asc" },
+      select: { id: true, checkIn: true },
     })
-    if (!open) throw new DomainError("NOT_CHECKED_IN", "You have no open check-in today.")
+    if (!open) throw new DomainError("NOT_CHECKED_IN", "You are not checked in today.")
 
     const lines = await scheduleLinesFor(actor.employeeId)
     const now = new Date()
-    const derived = deriveAttendance(open.checkIn, now, lines, open.status)
+    // Re-derived from the clock span, so a short day can become HALF_DAY and
+    // a late arrival stays LATE (BR-A1..A3).
+    const derived = deriveAttendance(open.checkIn, now, lines)
 
     const record = await db.attendance.update({
       where: { id: open.id },
@@ -160,8 +190,8 @@ export async function checkOut(): Promise<ActionResult<{ id: string }>> {
       select: { id: true },
     })
 
-    revalidatePath("/attendance")
-    return ok(record)
+    revalidateAttendance()
+    return ok({ id: record.id, workedHours: derived.workedHours.toFixed(2) })
   } catch (error) {
     return toActionResult(error, "checkOut")
   }

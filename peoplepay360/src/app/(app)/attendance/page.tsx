@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { Pagination } from "@/components/shared/Pagination"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ROLE_RANK, pageUser, rankOf } from "@/lib/auth-guard"
-import { ATTENDANCE_STATUS_LABEL } from "@/lib/attendance/compute"
+import { ATTENDANCE_STATUS_LABEL, todayWindow } from "@/lib/attendance/compute"
 import { db } from "@/lib/db"
 import { fmtDateCompact, fmtTime } from "@/lib/dates"
 import { formatHours } from "@/lib/money"
@@ -136,15 +136,16 @@ export default async function AttendancePage({
   // EMPLOYEE rank sees only their own rows — narrowed in the where clause.
   const scopedEmployeeId = isHr ? employeeId : (viewer.employeeId ?? "__none__")
 
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
+  // Both bounds: the seed carries rows dated after today, and an open-ended
+  // ">= midnight" would let one of them pose as today's record.
+  const { start: startOfToday, end: startOfTomorrow } = todayWindow()
 
   const where = {
     ...(scopedEmployeeId ? { employeeId: scopedEmployeeId } : {}),
     ...(status && status in AttendanceStatus
       ? { status: status as AttendanceStatus }
       : {}),
-    ...(today === "1" ? { checkIn: { gte: startOfToday } } : {}),
+    ...(today === "1" ? { checkIn: { gte: startOfToday, lt: startOfTomorrow } } : {}),
     ...(q
       ? {
           OR: [
@@ -188,9 +189,12 @@ export default async function AttendancePage({
       : null,
     viewer.employeeId
       ? db.attendance.findFirst({
-          where: { employeeId: viewer.employeeId, checkIn: { gte: startOfToday } },
-          orderBy: { checkIn: "desc" },
-          select: { id: true, checkIn: true, checkOut: true, workedHours: true },
+          where: {
+            employeeId: viewer.employeeId,
+            checkIn: { gte: startOfToday, lt: startOfTomorrow },
+          },
+          orderBy: { checkIn: "asc" },
+          select: { id: true, checkIn: true, checkOut: true, workedHours: true, status: true },
         })
       : null,
   ])
