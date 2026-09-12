@@ -50,10 +50,16 @@ export function Sparkline({
   return (
     <figure className={cn("relative", className)}>
       <div className="relative">
+        {/*
+         * The draw-on is a clip wipe on the <svg> box, not a stroke dash: with
+         * non-scaling-stroke under preserveAspectRatio="none", a dash pattern
+         * resolves in device space while pathLength scales in user space, and
+         * the mismatch leaves an "off" band in the middle of the line.
+         */}
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
-          className="block h-20 w-full overflow-visible"
+          className="spark-svg block h-20 w-full overflow-visible"
           aria-hidden
         >
           <defs>
@@ -71,8 +77,6 @@ export function Sparkline({
             strokeLinejoin="round"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
-            pathLength={1}
-            className="spark-line"
           />
         </svg>
 

@@ -132,7 +132,9 @@ function RailSelect({
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 appearance-none bg-transparent pl-1 pr-7 text-xs font-medium text-foreground focus:outline-none"
+          // Opaque, matching the label wrapper: Chromium seeds the popup's canvas
+          // from the select's own background, and a transparent one comes up white.
+          className="h-8 appearance-none bg-surface pl-1 pr-7 text-xs font-medium text-foreground focus:outline-none"
         >
           {children}
         </select>

@@ -1,14 +1,20 @@
 /* dashboard package styles — imported by src/app/globals.css. Plain classes go in @layer components; classes that need variants (hover:, md:) use @utility; @keyframes at top level. */
 
 /*
- * Every animation here is one-shot and touches only transform, opacity or
- * stroke-dashoffset. The global prefers-reduced-motion switch in globals.css
- * collapses all of them, including the infinite pulse on the sparkline.
+ * Every animation here is one-shot and touches only transform, opacity,
+ * clip-path or stroke-dashoffset. The global prefers-reduced-motion switch in
+ * globals.css collapses all of them, including the infinite pulse on the
+ * sparkline.
  */
 
+/* Left-to-right wipe. Negative insets keep the round caps and the top-most
+   point's stroke inside the clip once fully revealed. */
 @keyframes spark-draw {
+  from {
+    clip-path: inset(-8px 100% -8px -8px);
+  }
   to {
-    stroke-dashoffset: 0;
+    clip-path: inset(-8px -8px -8px -8px);
   }
 }
 @keyframes spark-fade {
@@ -139,10 +145,8 @@
     --color-border: color-mix(in oklch, var(--color-ink-fg) 22%, transparent);
   }
 
-  /* Sparkline: the polyline draws itself, the area fades in behind it. */
-  .spark-line {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
+  /* Sparkline: the whole drawing wipes in left to right; the area fades in behind it. */
+  .spark-svg {
     animation: spark-draw 1.2s var(--ease-out-quart) 0.2s both;
   }
   .spark-area {
