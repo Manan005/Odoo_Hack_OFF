@@ -35,8 +35,8 @@ const DEMO_ACCOUNTS = [
 ] as const
 const DEMO_PASSWORD = "demo1234"
 
-/** 40px row + 4px gap. Rows are fixed height, so the pill needs no measuring. */
-const ROW_PITCH = 44
+/** 36px row + 2px gap. Rows are fixed height, so the pill needs no measuring. */
+const ROW_PITCH = 38
 
 const LEAVING_CLASS = "auth-leaving"
 
@@ -126,14 +126,14 @@ export function LoginForm({ next = "/" }: { next?: string }) {
     <div
       data-leaving={leaving || undefined}
       className={cn(
-        "space-y-6 transition-[opacity,transform] duration-300 ease-out-quart",
+        "space-y-4 transition-[opacity,translate] duration-300 ease-out-quart",
         "data-leaving:pointer-events-none data-leaving:-translate-y-1 data-leaving:opacity-0",
       )}
     >
       <form
         onSubmit={onSubmit}
         noValidate
-        className={cn("stagger space-y-4", shaking && "login-form-shake")}
+        className={cn("stagger space-y-3.5", shaking && "login-form-shake")}
         style={{ "--stagger-offset": 8 } as CSSProperties}
         onAnimationEnd={(e) => {
           if (e.animationName === "login-shake") setShaking(false)
@@ -147,7 +147,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
               autoComplete="username"
               autoFocus
               placeholder="name@company.com"
-              className="peer h-11 pl-10 text-[15px]"
+              className="peer h-10 pl-10 text-[15px]"
               error={Boolean(errors.email)}
               {...register("email")}
             />
@@ -171,7 +171,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               placeholder="••••••••"
-              className="peer h-11 pl-10 pr-12 text-[15px]"
+              className="peer h-10 pl-10 pr-12 text-[15px]"
               error={Boolean(errors.password)}
               {...register("password")}
               onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))}
@@ -194,14 +194,14 @@ export function LoginForm({ next = "/" }: { next?: string }) {
               <Eye
                 aria-hidden
                 className={cn(
-                  "h-4 w-4 transition-[transform,opacity] duration-300 ease-spring",
+                  "h-4 w-4 transition-[rotate,scale,opacity] duration-300 ease-spring",
                   showPassword ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100",
                 )}
               />
               <EyeOff
                 aria-hidden
                 className={cn(
-                  "absolute h-4 w-4 transition-[transform,opacity] duration-300 ease-spring",
+                  "absolute h-4 w-4 transition-[rotate,scale,opacity] duration-300 ease-spring",
                   showPassword ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0",
                 )}
               />
@@ -255,7 +255,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
       </form>
 
       <div>
-        <p className="mb-2 flex items-baseline justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-subtle-foreground">
+        <p className="mb-1.5 flex items-baseline justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-subtle-foreground">
           <span>Demo accounts</span>
           <span className="font-mono normal-case tracking-normal">password {DEMO_PASSWORD}</span>
         </p>
@@ -264,13 +264,13 @@ export function LoginForm({ next = "/" }: { next?: string }) {
           {/* One shared selection pill slides between rows. */}
           <span
             aria-hidden
-            className="absolute inset-x-0 top-0 h-10 rounded-lg bg-primary-subtle/70 ring-1 ring-inset ring-primary/30 transition-[transform,opacity] duration-300 ease-out-quart"
+            className="absolute inset-x-0 top-0 h-9 rounded-lg bg-primary-subtle/70 ring-1 ring-inset ring-primary/30 transition-[transform,opacity] duration-300 ease-out-quart"
             style={{
               transform: `translateY(${Math.max(selectedIndex, 0) * ROW_PITCH}px)`,
               opacity: selectedIndex < 0 ? 0 : 1,
             }}
           />
-          <ul className="stagger relative space-y-1" style={{ "--stagger-offset": 12 } as CSSProperties}>
+          <ul className="stagger relative space-y-0.5" style={{ "--stagger-offset": 12 } as CSSProperties}>
             {DEMO_ACCOUNTS.map((account) => {
               const active = account.email === currentEmail
               const Icon = account.icon
@@ -282,7 +282,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
                     disabled={busy}
                     onClick={() => (active ? void onSubmit() : fillDemo(account.email))}
                     className={cn(
-                      "group flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left",
+                      "group flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left",
                       "transition-colors duration-150 ease-out-quart",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                       active ? "text-primary" : "text-foreground hover:bg-surface-hover",
@@ -305,7 +305,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
                     <ChevronRight
                       aria-hidden
                       className={cn(
-                        "h-4 w-4 shrink-0 transition-[transform,opacity] duration-200 ease-out-quart",
+                        "h-4 w-4 shrink-0 transition-[translate,opacity] duration-200 ease-out-quart",
                         active
                           ? "translate-x-0 opacity-100"
                           : "-translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-50",

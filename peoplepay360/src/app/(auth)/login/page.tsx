@@ -40,7 +40,8 @@ export default async function LoginPage({
        * pastel chart colours read on ink whatever the page theme is.
        */}
       {/* minmax(0,1fr) lets the middle row shrink below the SVG's intrinsic height on 768px laptops. */}
-      <section className="scheme-dark relative hidden overflow-hidden bg-ink p-12 text-ink-fg lg:grid lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-10 lg:border-r lg:border-ink-fg/8">
+      {/* Sticky and viewport-high so the panel never grows past the screen when the form column is taller. */}
+      <section className="scheme-dark relative hidden overflow-hidden bg-ink p-8 text-ink-fg lg:sticky lg:top-0 lg:grid lg:h-dvh lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-6 lg:border-r lg:border-ink-fg/8 xl:p-10">
         <div aria-hidden className="login-ruled pointer-events-none absolute inset-0" />
 
         <div className="group relative flex items-center gap-2.5">
@@ -57,7 +58,7 @@ export default async function LoginPage({
         </Spotlight>
 
         <div className="relative max-w-md">
-          <p className="font-display text-[44px] font-medium leading-[1.04] tracking-[-0.02em] xl:text-[52px]">
+          <p className="font-display text-[clamp(34px,3.4vw,52px)] font-medium leading-[1.04] tracking-[-0.02em]">
             <span className="login-line">
               <span style={delay(120)}>Payroll that shows</span>
             </span>
@@ -81,7 +82,7 @@ export default async function LoginPage({
               </span>
             </span>
           </p>
-          <p className="mt-5 max-w-sm animate-fade-up text-pretty text-[15px] leading-relaxed text-ink-fg/70 [animation-delay:560ms]">
+          <p className="mt-4 max-w-sm animate-fade-up text-pretty text-[15px] leading-relaxed text-ink-fg/70 [animation-delay:560ms]">
             Every payslip line traces to a salary rule. Every dashboard figure is a live query.
             Nothing on screen is typed in by hand.
           </p>
@@ -89,11 +90,11 @@ export default async function LoginPage({
       </section>
 
       {/* Form panel */}
-      <section className="relative flex items-center justify-center px-6 py-12 sm:px-10">
+      <section className="relative flex items-center justify-center px-6 py-4 sm:px-10 lg:py-6">
         <div aria-hidden className="ambient-glow pointer-events-none absolute inset-x-0 top-0 h-80" />
 
         <div
-          className="stagger relative w-full max-w-[440px] lg:rounded-3xl lg:bg-surface lg:p-9 lg:shadow-raise"
+          className="stagger relative w-full max-w-[440px] lg:rounded-3xl lg:bg-surface lg:p-6 lg:shadow-raise xl:p-7"
           style={{ "--stagger-offset": 6 } as CSSProperties}
         >
           <div className="mb-8 lg:hidden">
@@ -101,13 +102,13 @@ export default async function LoginPage({
           </div>
 
           <div>
-            <h1 className="text-[28px] font-semibold tracking-[-0.02em]">Welcome back</h1>
+            <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">Welcome back</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               Use your work email, or pick a demo account below.
             </p>
           </div>
 
-          <div className="mt-7">
+          <div className="mt-5">
             <LoginForm next={next} />
           </div>
         </div>

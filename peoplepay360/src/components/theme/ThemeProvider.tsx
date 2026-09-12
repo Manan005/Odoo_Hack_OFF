@@ -91,6 +91,16 @@ function transition(mutate: () => void, origin?: ThemeOrigin) {
     html.classList.remove("theme-swapping", "theme-reveal")
   }
 
+  // Notify React only once the attribute has actually changed. The View
+  // Transition callback runs after the old-state snapshot is taken, so
+  // emitting synchronously from the caller would re-read the DOM before the
+  // swap and leave every subscriber (the toggle's `resolved`) stale — the
+  // second click would then compute the same theme and do nothing.
+  const apply = () => {
+    mutate()
+    emit()
+  }
+
   const doc = document as DocumentWithViewTransition
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches
   if (!reduceMotion && typeof doc.startViewTransition === "function") {
@@ -105,9 +115,9 @@ function transition(mutate: () => void, origin?: ThemeOrigin) {
       html.style.setProperty("--vt-r", `${r}px`)
       html.classList.add("theme-reveal")
     }
-    doc.startViewTransition(mutate).finished.finally(release)
+    doc.startViewTransition(apply).finished.finally(release)
   } else {
-    mutate()
+    apply()
     requestAnimationFrame(() => requestAnimationFrame(release))
   }
 }
@@ -139,7 +149,6 @@ export function ThemeProvider({
     transition(() => {
       document.documentElement.dataset.theme = next
     }, origin)
-    emit()
   }, [])
 
   const setAccent = useCallback((next: Accent) => {
@@ -148,7 +157,6 @@ export function ThemeProvider({
     transition(() => {
       document.documentElement.dataset.accent = next
     })
-    emit()
   }, [])
 
   const value = useMemo(

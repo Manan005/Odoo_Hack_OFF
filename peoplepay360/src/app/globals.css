@@ -265,6 +265,27 @@
   }
 
   /*
+   * Edge (and other Chromium builds on Windows) draw their own password
+   * reveal control inside the field. Every password input here has its own
+   * toggle, so the native one would show up as a second eye beside it.
+   */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
+  /*
+   * Chromium paints a <select> popup on its own canvas and only honours the
+   * colours the options declare. Without these, a transparent select in dark
+   * mode opens a white list with near-white text.
+   */
+  select option,
+  select optgroup {
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+  }
+
+  /*
    * A modal <dialog> is centred by the UA stylesheet with `margin: auto`
    * against `inset: 0`. Tailwind's preflight resets `margin` to 0 on every
    * element, so without this every dialog opens pinned to the top-left.
