@@ -157,7 +157,11 @@ export function ConfirmDialog({
         // Click on the backdrop (the dialog element itself, not its content).
         if (e.target === e.currentTarget) onCancel()
       }}
-      className="w-full max-w-md overflow-hidden rounded-2xl border border-border/70 bg-surface p-0 text-foreground shadow-modal"
+      // `text-left`: a <dialog> paints in the top layer but still inherits from
+      // its DOM parent, and useConfirm() mounts this wherever the trigger lives
+      // — inside a right-aligned table cell for row actions, which otherwise
+      // right-aligns the icon, title and description.
+      className="w-full max-w-md overflow-hidden rounded-2xl border border-border/70 bg-surface p-0 text-left text-base font-normal text-foreground shadow-modal"
     >
       <div className="stagger p-6">
         <span
