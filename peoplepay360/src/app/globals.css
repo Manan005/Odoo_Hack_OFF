@@ -230,6 +230,30 @@
     border-color: var(--color-border);
   }
 
+  /*
+   * Tailwind v4 preflight leaves buttons on the browser default cursor, so
+   * nothing here showed the hand. Every clickable control gets it once,
+   * and a disabled control says why not.
+   */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  input[type="submit"]:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+
   html {
     scroll-behavior: smooth;
     scrollbar-color: var(--color-border-strong) transparent;
