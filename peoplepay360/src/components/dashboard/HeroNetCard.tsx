@@ -10,10 +10,11 @@ import { formatINR, formatLakh } from "@/lib/money"
 import { cn } from "@/lib/utils"
 
 /**
- * The dashboard's anchor: total net for the period on an ink surface, the
- * real six-month sparkline beneath it, and the period's payrun rail. The
- * ticker gets the display face; the currency sign stays sans so the glyph
- * never falls back mid-numeral.
+ * The dashboard's anchor: total net for the period, the real six-month
+ * sparkline beneath it, and the period's payrun rail. Ink in dark mode,
+ * raised paper in light — `.hero-ink` re-points the ink pair per theme, so
+ * the `ink-fg` utilities below follow. The ticker gets the display face; the
+ * currency sign stays sans so the glyph never falls back mid-numeral.
  */
 export function HeroNetCard({
   periodLabel,
@@ -46,7 +47,7 @@ export function HeroNetCard({
   return (
     <article
       className={cn(
-        "hero-ink flex flex-col overflow-hidden rounded-2xl border border-ink-fg/10 shadow-card",
+        "hero-ink flex flex-col overflow-hidden rounded-2xl border border-ink-fg/10 shadow-raise",
         className,
       )}
       aria-labelledby="hero-net-label"
@@ -136,7 +137,7 @@ export function HeroNetCard({
               <p className="text-sm text-ink-fg/70">No payrun for this period.</p>
               <Link
                 href="/payroll/payruns"
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-ink-fg px-3 text-xs font-medium text-ink transition-[opacity,transform] duration-150 ease-out-quart hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-fg transition-[opacity,scale] duration-150 ease-out-quart hover:opacity-90 active:scale-[0.98]"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden />
                 Create payrun

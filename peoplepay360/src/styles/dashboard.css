@@ -81,12 +81,35 @@
 
 @layer components {
   /*
-   * Hero — the one ink tile on the dashboard. Same ink in both modes, rhyming
-   * with the login brand panel. `--ink-accent` lifts the accent hue so it
-   * reads on ink whatever the theme's primary lightness is.
+   * Hero — the dashboard's anchor tile. Ink in dark mode, rhyming with the
+   * login brand panel; raised paper in light mode so it sits with the page.
+   *
+   * Everything inside is written against the ink pair (`text-ink-fg/60`,
+   * `border-ink-fg/10`, `var(--color-ink)` rings…). Those utilities resolve
+   * their variables at the element, so re-pointing the pair here re-themes
+   * the whole card in one place. The dark literals are the @theme values of
+   * --color-ink / --color-ink-fg; a var() would self-reference.
+   * `--ink-accent` lifts the accent hue so it reads on ink.
    */
   .hero-ink {
-    --ink-accent: color-mix(in oklch, var(--color-primary) 58%, var(--color-ink-fg));
+    --color-ink: light-dark(var(--color-surface), oklch(0.16 0.02 265));
+    --color-ink-fg: light-dark(var(--color-foreground), oklch(0.96 0.008 260));
+    --ink-accent: light-dark(
+      var(--color-primary),
+      color-mix(in oklch, var(--color-primary) 58%, oklch(0.96 0.008 260))
+    );
+    --hero-glow-a: light-dark(
+      color-mix(in oklch, var(--color-primary) 14%, transparent),
+      color-mix(in oklch, var(--color-primary) 30%, transparent)
+    );
+    --hero-glow-b: light-dark(
+      color-mix(in oklch, var(--color-chart-2) 6%, transparent),
+      color-mix(in oklch, var(--color-chart-2) 10%, transparent)
+    );
+    --hero-blob: light-dark(
+      color-mix(in oklch, var(--color-primary) 18%, transparent),
+      color-mix(in oklch, var(--color-primary) 38%, transparent)
+    );
     position: relative;
     isolation: isolate;
     background-color: var(--color-ink);
@@ -99,16 +122,8 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(
-        72% 62% at 100% 0%,
-        color-mix(in oklch, var(--color-primary) 30%, transparent),
-        transparent 70%
-      ),
-      radial-gradient(
-        48% 40% at 0% 100%,
-        color-mix(in oklch, var(--color-chart-2) 10%, transparent),
-        transparent 70%
-      );
+      radial-gradient(72% 62% at 100% 0%, var(--hero-glow-a), transparent 70%),
+      radial-gradient(48% 40% at 0% 100%, var(--hero-glow-b), transparent 70%);
   }
   .hero-blob {
     position: absolute;
@@ -119,30 +134,29 @@
     height: 20rem;
     border-radius: 9999px;
     pointer-events: none;
-    background: radial-gradient(
-      closest-side,
-      color-mix(in oklch, var(--color-primary) 38%, transparent),
-      transparent
-    );
+    background: radial-gradient(closest-side, var(--hero-blob), transparent);
     animation: hero-drift 12s ease-in-out infinite alternate;
     will-change: transform;
   }
 
   /*
-   * Re-theme surface-scoped primitives (PayrunStepper) for the ink card.
+   * Re-theme surface-scoped primitives (PayrunStepper) for the ink card —
+   * dark mode only; on the light card the stepper's own tokens are right.
    * Tailwind utilities resolve to var(--color-*), so overriding the variables
    * on a wrapper restyles the stepper without touching its source.
    * `--ink-accent` is inherited from .hero-ink, where --color-primary is still
    * the theme value, so there is no cycle.
    */
   .ink-scope {
-    --color-primary: var(--ink-accent);
-    --color-primary-fg: var(--color-ink);
-    --color-surface: var(--color-ink);
-    --color-foreground: var(--color-ink-fg);
-    --color-muted-foreground: color-mix(in oklch, var(--color-ink-fg) 72%, transparent);
-    --color-subtle-foreground: color-mix(in oklch, var(--color-ink-fg) 46%, transparent);
-    --color-border: color-mix(in oklch, var(--color-ink-fg) 22%, transparent);
+    @variant dark {
+      --color-primary: var(--ink-accent);
+      --color-primary-fg: var(--color-ink);
+      --color-surface: var(--color-ink);
+      --color-foreground: var(--color-ink-fg);
+      --color-muted-foreground: color-mix(in oklch, var(--color-ink-fg) 72%, transparent);
+      --color-subtle-foreground: color-mix(in oklch, var(--color-ink-fg) 46%, transparent);
+      --color-border: color-mix(in oklch, var(--color-ink-fg) 22%, transparent);
+    }
   }
 
   /* Sparkline: the whole drawing wipes in left to right; the area fades in behind it. */
