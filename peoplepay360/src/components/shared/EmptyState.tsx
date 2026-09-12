@@ -82,7 +82,7 @@ export function EmptyState({
           <Icon className="h-5 w-5" aria-hidden />
         </span>
       </span>
-      <p className="mt-4 font-display text-lg font-medium tracking-tight">{title}</p>
+      <p className="mt-4 font-display text-lg font-semibold tracking-tight">{title}</p>
       {description && (
         <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
           {description}

@@ -57,7 +57,7 @@ export function StatusPage({
       >
         <Icon className="h-6 w-6" aria-hidden />
       </span>
-      <h1 className="relative mt-6 font-display text-[28px] font-medium leading-[1.15] tracking-[-0.015em]">
+      <h1 className="relative mt-6 font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.015em]">
         {title}
       </h1>
       <p className="relative mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">

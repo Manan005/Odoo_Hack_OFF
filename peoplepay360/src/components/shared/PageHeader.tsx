@@ -31,7 +31,7 @@ export function PageHeader({
         )}
         {/* The wrapper clips; a little bottom room keeps serif descenders whole. */}
         <div className="-mb-1 overflow-hidden pb-1">
-          <h1 className="rise-in font-display text-[30px] font-medium leading-[1.1] tracking-[-0.02em]">
+          <h1 className="rise-in font-display text-[30px] font-semibold leading-[1.1] tracking-[-0.02em]">
             {title}
           </h1>
         </div>

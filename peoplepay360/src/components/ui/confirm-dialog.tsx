@@ -172,7 +172,7 @@ export function ConfirmDialog({
         >
           <Icon className="h-5 w-5" aria-hidden />
         </span>
-        <h2 id={titleId} className="mt-4 font-display text-xl font-medium tracking-tight">
+        <h2 id={titleId} className="mt-4 font-display text-xl font-semibold tracking-tight">
           {title}
         </h2>
         {description && (

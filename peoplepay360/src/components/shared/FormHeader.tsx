@@ -51,7 +51,7 @@ export function FormHeader({
           )}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="font-display text-2xl font-medium leading-tight tracking-[-0.02em]">
+              <h1 className="font-display text-2xl font-semibold leading-tight tracking-[-0.02em]">
                 {title}
               </h1>
               {badge}

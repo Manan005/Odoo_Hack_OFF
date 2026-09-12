@@ -58,14 +58,15 @@ export default async function LoginPage({
         </Spotlight>
 
         <div className="relative max-w-md">
-          <p className="font-display text-[clamp(34px,3.4vw,52px)] font-medium leading-[1.04] tracking-[-0.02em]">
+          <p className="font-display text-[clamp(34px,3.4vw,52px)] font-semibold leading-[1.04] tracking-[-0.02em]">
             <span className="login-line">
               <span style={delay(120)}>Payroll that shows</span>
             </span>
             <span className="login-line">
               <span style={delay(240)}>
                 its{" "}
-                <em className="relative inline-block italic text-chart-1">
+                {/* Not italic: Bahnschrift has no italic and a synthesized slant reads cheap. */}
+                <em className="relative inline-block not-italic text-chart-1">
                   working.
                   <svg aria-hidden viewBox="0 0 200 12" preserveAspectRatio="none" className="login-underline">
                     <path

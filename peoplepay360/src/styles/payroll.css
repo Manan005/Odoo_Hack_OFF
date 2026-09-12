@@ -114,7 +114,7 @@
     transform: none;
   }
 
-  /* Hero numeral: the display serif, lining tabular figures so it rolls cleanly. */
+  /* Hero numeral: the display face, lining tabular figures so it rolls cleanly. */
   .pay-hero-numeral {
     font-family: var(--font-display);
     font-variant-numeric: lining-nums tabular-nums;

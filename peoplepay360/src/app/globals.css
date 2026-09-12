@@ -117,8 +117,9 @@
   --font-sans:
     "Segoe UI Variable Display", "Segoe UI Variable Text", "SF Pro Display", -apple-system,
     system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display:
-    "Sitka Display", "Sitka Heading", "Sitka", "Palatino Linotype", "Book Antiqua", Cambria, Georgia, serif;
+  /* Display register: Bahnschrift (variable DIN, OS-installed, tabular figures verified)
+     at 600; it has no italic, so display text never uses one. */
+  --font-display: "Bahnschrift", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   --font-mono:
     "Cascadia Code", "Cascadia Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
