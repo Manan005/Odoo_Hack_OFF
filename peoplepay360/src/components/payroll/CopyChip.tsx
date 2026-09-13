@@ -57,7 +57,8 @@ export function CopyChip({
         onClick={copy}
         aria-label={copied ? "Copied" : `Copy ${label}`}
         title={copied ? "Copied" : `Copy ${label}`}
-        className="rounded p-1 text-muted-foreground transition-[background-color,color,transform] duration-100 hover:bg-surface-hover hover:text-foreground active:scale-90"
+        // The visible button stays 20px; the ::before extends the hit box to 40px.
+        className="relative rounded p-1 text-muted-foreground transition-[background-color,color,transform] duration-100 before:absolute before:-inset-2.5 hover:bg-surface-hover hover:text-foreground active:scale-90"
       >
         {copied ? (
           <Check className="copy-check h-3 w-3 text-success" aria-hidden />

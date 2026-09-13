@@ -34,7 +34,11 @@ export function PayrunStepper({
   const progress = current / (STEPS.length - 1)
 
   return (
-    <ol className={cn("relative flex items-start justify-between", className)} aria-label="Payrun progress">
+    <ol
+      // `pb-6` reserves room for the one label that hangs below its node on a phone.
+      className={cn("relative flex items-start justify-between pb-6 sm:pb-0", className)}
+      aria-label="Payrun progress"
+    >
       <span
         aria-hidden
         className="absolute left-[10px] right-[10px] top-[8.5px] h-[3px] rounded-full bg-border/80"
@@ -83,6 +87,12 @@ export function PayrunStepper({
             <span
               className={cn(
                 "text-[11px] font-medium",
+                // Five labels do not fit a phone; the nodes stay and only the
+                // current step keeps its name, hung below its node so every
+                // <li> is node-wide and the rail's fill lands on the centre.
+                active
+                  ? "absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap sm:static sm:mt-0 sm:translate-x-0"
+                  : "hidden sm:block",
                 active
                   ? paid
                     ? "text-success"

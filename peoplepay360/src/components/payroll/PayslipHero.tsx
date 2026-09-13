@@ -46,7 +46,8 @@ export function PayslipHero({ totals, status }: { totals: Totals; status: Paysli
           <p className={eyebrow}>Net pay</p>
           <StatusBadge status={status} />
         </div>
-        <p className="pay-hero-numeral mt-3 text-[2.75rem] text-primary sm:text-[3rem]">
+        {/* Fluid so a seven-figure net still fits the 318px tile of a 390px phone. */}
+        <p className="pay-hero-numeral mt-3 text-[clamp(2rem,9vw,3rem)] text-primary">
           <NumberTicker value={formatINR(String(totals.net))} delayStep={55} />
         </p>
 

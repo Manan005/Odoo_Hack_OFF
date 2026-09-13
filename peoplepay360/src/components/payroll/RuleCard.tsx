@@ -45,7 +45,8 @@ export function RuleCard({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-        <div className="min-w-0 flex-1">
+        {/* Below `sm` the name block owns its row; the chip and link wrap under it. */}
+        <div className="min-w-0 grow basis-full sm:basis-0">
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={href}
@@ -81,9 +82,13 @@ export function RuleCard({
           </p>
         </div>
 
-        <CopyChip text={ruleExpression(rule)} className="max-w-xs" />
+        <CopyChip text={ruleExpression(rule)} className="sm:max-w-xs" />
 
-        <Link href={href} className="text-xs font-medium text-primary hover:underline">
+        {/* A 40px-tall target on a phone, where it sits in the wrapped row under the name. */}
+        <Link
+          href={href}
+          className="inline-flex min-h-10 items-center text-xs font-medium text-primary hover:underline sm:min-h-0"
+        >
           {actionLabel}
         </Link>
       </div>

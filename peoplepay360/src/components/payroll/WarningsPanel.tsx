@@ -84,7 +84,8 @@ export function WarningsPanel({ warnings }: { warnings: PayrollWarningRow[] }) {
               {w.payslipId && (
                 <Link
                   href={`/payroll/payslips/${w.payslipId}`}
-                  className="group inline-flex shrink-0 items-center gap-0.5 font-medium hover:underline"
+                  // Negative margins grow the tap area without moving the text.
+                  className="group -my-2 -mr-2 inline-flex shrink-0 items-center gap-0.5 rounded-md px-2 py-2 font-medium hover:underline"
                 >
                   View
                   <ArrowUpRight

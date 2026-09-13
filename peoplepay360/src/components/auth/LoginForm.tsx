@@ -35,8 +35,13 @@ const DEMO_ACCOUNTS = [
 ] as const
 const DEMO_PASSWORD = "demo1234"
 
-/** 36px row + 2px gap. Rows are fixed height, so the pill needs no measuring. */
-const ROW_PITCH = 38
+/**
+ * Row height + 2px gap, as a CSS variable set per breakpoint on the list
+ * (44px rows on phones for the thumb, 36px from `sm`), so the sliding pill
+ * follows the row pitch without measuring anything.
+ */
+const ROW_PITCH = "[--row:46px] sm:[--row:38px]"
+const ROW_HEIGHT = "h-11 sm:h-9"
 
 const LEAVING_CLASS = "auth-leaving"
 
@@ -186,7 +191,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
               aria-pressed={showPassword}
               onClick={() => setShowPassword((v) => !v)}
               className={cn(
-                "absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground",
+                "absolute right-1 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground",
                 "transition-colors duration-150 hover:bg-surface-hover hover:text-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
               )}
@@ -247,7 +252,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
 
         <button
           type="button"
-          className="w-full text-center text-xs text-muted-foreground transition-colors hover:text-primary"
+          className="w-full py-2 text-center text-xs text-muted-foreground transition-colors hover:text-primary"
           onClick={() => toast.info("Contact your administrator to reset your password.")}
         >
           Forgot password?
@@ -260,13 +265,16 @@ export function LoginForm({ next = "/" }: { next?: string }) {
           <span className="font-mono normal-case tracking-normal">password {DEMO_PASSWORD}</span>
         </p>
 
-        <div className="relative">
+        <div className={cn("relative", ROW_PITCH)}>
           {/* One shared selection pill slides between rows. */}
           <span
             aria-hidden
-            className="absolute inset-x-0 top-0 h-9 rounded-lg bg-primary-subtle/70 ring-1 ring-inset ring-primary/30 transition-[transform,opacity] duration-300 ease-out-quart"
+            className={cn(
+              "absolute inset-x-0 top-0 rounded-lg bg-primary-subtle/70 ring-1 ring-inset ring-primary/30 transition-[transform,opacity] duration-300 ease-out-quart",
+              ROW_HEIGHT,
+            )}
             style={{
-              transform: `translateY(${Math.max(selectedIndex, 0) * ROW_PITCH}px)`,
+              transform: `translateY(calc(var(--row) * ${Math.max(selectedIndex, 0)}))`,
               opacity: selectedIndex < 0 ? 0 : 1,
             }}
           />
@@ -282,7 +290,8 @@ export function LoginForm({ next = "/" }: { next?: string }) {
                     disabled={busy}
                     onClick={() => (active ? void onSubmit() : fillDemo(account.email))}
                     className={cn(
-                      "group flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left",
+                      "group flex w-full items-center gap-3 rounded-lg px-3 text-left",
+                      ROW_HEIGHT,
                       "transition-colors duration-150 ease-out-quart",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                       active ? "text-primary" : "text-foreground hover:bg-surface-hover",

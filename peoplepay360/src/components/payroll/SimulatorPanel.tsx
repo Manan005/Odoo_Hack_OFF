@@ -30,6 +30,17 @@ const OVERRIDE_KEYS = ["wage", "workedDays", "overtimeHours", "unpaidLeaveDays"]
 const eyebrow = "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
 
 /**
+ * The results table is wider than a phone and scrolls inside its Surface; the
+ * Rule column pins to the left edge so a figure never loses its name. A
+ * pinned cell needs an opaque ground or the scrolled cells show through, so
+ * each row tone is mixed over the surface colour rather than laid on it.
+ */
+const stickyCol = "sticky left-0 z-[1]"
+const groundRow = "bg-surface group-hover:bg-surface-hover"
+const groundHead = "bg-[color-mix(in_oklch,var(--color-surface-muted)_60%,var(--color-surface))]"
+const groundEmphasis = "bg-[color-mix(in_oklch,var(--color-primary-subtle)_50%,var(--color-surface))]"
+
+/**
  * Sign of a server-formatted decimal string. String inspection only — the
  * figure is never converted to a number here (rules.md §3); the server
  * already did the subtraction.
@@ -235,16 +246,27 @@ export function SimulatorPanel({
           </Field>
         </FieldGrid>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <Button onClick={run} loading={pending} loadingText="Running the engine…">
+        {/* Stacked, full-width and 40px tall on a phone; inline from `sm`. */}
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button
+            className="min-h-10 sm:min-h-0"
+            onClick={run}
+            loading={pending}
+            loadingText="Running the engine…"
+          >
             <FlaskConical className="h-4 w-4" aria-hidden />
             Run simulation
           </Button>
-          <Button variant="ghost" onClick={resetOverrides} disabled={pending || !hasOverride}>
+          <Button
+            variant="ghost"
+            className="min-h-10 sm:min-h-0"
+            onClick={resetOverrides}
+            disabled={pending || !hasOverride}
+          >
             <RotateCcw className="h-4 w-4" aria-hidden />
             Reset overrides
           </Button>
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground sm:ml-auto">
             Nothing is saved. No payslip, payrun or contract is touched.
           </span>
         </div>
@@ -284,7 +306,7 @@ export function SimulatorPanel({
           )}
 
           <Surface className="overflow-hidden">
-            <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/70 px-5 py-4">
+            <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/70 px-4 py-4 sm:px-5">
               <h3 className="text-sm font-semibold tracking-tight">
                 {result.employeeName} · {result.structureName}
               </h3>
@@ -308,7 +330,9 @@ export function SimulatorPanel({
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-border/70 bg-surface-muted/60 text-[11px] uppercase tracking-wider text-muted-foreground">
-                    <th className="px-5 py-2.5 text-left font-semibold">Rule</th>
+                    <th className={cn("px-5 py-2.5 text-left font-semibold", stickyCol, groundHead)}>
+                      Rule
+                    </th>
                     <th className="px-5 py-2.5 text-right font-semibold">Actual</th>
                     <th className="px-5 py-2.5 text-right font-semibold">Simulated</th>
                     <th className="px-5 py-2.5 text-right font-semibold">Delta</th>
@@ -512,9 +536,9 @@ function SimBody({
       {lines.map((l) => (
         <tr
           key={l.code}
-          className="border-b border-border/60 transition-colors duration-100 hover:bg-surface-hover/60"
+          className="group border-b border-border/60 transition-colors duration-100 hover:bg-surface-hover/60"
         >
-          <td className="px-5 py-2.5">
+          <td className={cn("px-5 py-2.5", stickyCol, groundRow)}>
             <span className="font-medium">{l.name}</span>
             <span className="ml-2 font-mono text-[11px] text-subtle-foreground">{l.code}</span>
           </td>
@@ -555,7 +579,15 @@ function TotalRow({
 }) {
   return (
     <tr className={cn("border-t border-border/70", emphasis && "bg-primary-subtle/50")}>
-      <td className={cn("px-5 py-3 font-semibold", emphasis && "text-primary")}>{label}</td>
+      <td
+        className={cn(
+          "px-5 py-3 font-semibold",
+          stickyCol,
+          emphasis ? `${groundEmphasis} text-primary` : "bg-surface",
+        )}
+      >
+        {label}
+      </td>
       <td className="px-5 py-3 text-right tabular text-muted-foreground">
         {actual ? formatINR(actual) : "—"}
       </td>

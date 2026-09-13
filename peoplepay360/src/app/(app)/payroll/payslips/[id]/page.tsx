@@ -109,7 +109,7 @@ export default async function PayslipDetailPage({
           </span>
         }
         actions={
-          <span className="flex items-center gap-2">
+          <span className="flex flex-wrap items-center gap-2">
             {/* `?view=1` opens the browser's PDF viewer in a new tab. */}
             <a href={`/api/payslips/${payslip.id}/pdf?view=1`} target="_blank" rel="noopener noreferrer">
               <Button variant="ghost">

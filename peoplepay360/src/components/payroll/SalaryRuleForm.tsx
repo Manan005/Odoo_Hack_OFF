@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { saveRule } from "@/actions/salary.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field"
 import {
@@ -358,7 +358,7 @@ export function SalaryRuleForm({
       </FormSection>
 
       {!readOnly && (
-        <div className="flex items-center gap-2">
+        <FormActions>
           <Button onClick={submit} loading={pending} loadingText="Saving…">
             {v.id ? "Save Changes" : "Create Rule"}
           </Button>
@@ -369,7 +369,7 @@ export function SalaryRuleForm({
           >
             Cancel
           </Button>
-        </div>
+        </FormActions>
       )}
     </div>
   )

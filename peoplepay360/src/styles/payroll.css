@@ -89,7 +89,13 @@
     animation-delay: calc(var(--d, 0ms) + var(--row-delay, 0ms));
   }
 
-  /* The rule's working, folded under its name until the row is hovered. */
+  /*
+   * The rule's working, folded under its name until the row is opened. Three
+   * ways in: a tap or click pins it (`data-open`, written by <LedgerRow>),
+   * keyboard focus shows it, and on a real pointer hovering shows it too.
+   * The hover rule is fenced off from touch, where :hover sticks after a tap
+   * and would fight the toggle.
+   */
   .formula-peek {
     display: grid;
     grid-template-rows: 0fr;
@@ -104,14 +110,30 @@
     transform: translateY(-4px);
     transition: transform 0.26s var(--ease-out-quart);
   }
-  .ledger-row:hover .formula-peek,
-  .ledger-row:focus-within .formula-peek {
+  .ledger-row[data-open] .formula-peek,
+  .ledger-row:focus-visible .formula-peek {
     grid-template-rows: 1fr;
     opacity: 1;
   }
-  .ledger-row:hover .formula-peek > *,
-  .ledger-row:focus-within .formula-peek > * {
+  .ledger-row[data-open] .formula-peek > *,
+  .ledger-row:focus-visible .formula-peek > * {
     transform: none;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .ledger-row:hover .formula-peek {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+    .ledger-row:hover .formula-peek > * {
+      transform: none;
+    }
+  }
+  /* The disclosure chevron beside the rule name turns when the row is pinned open. */
+  .ledger-chevron {
+    transition: transform 0.26s var(--ease-out-quart);
+  }
+  .ledger-row[data-open] .ledger-chevron {
+    transform: rotate(180deg);
   }
 
   /* Hero numeral: the display face, lining tabular figures so it rolls cleanly. */
@@ -169,10 +191,13 @@
       box-shadow 0.2s var(--ease-out-quart),
       border-color 0.2s var(--ease-out-quart);
   }
-  .pay-tile:hover {
-    transform: translateY(-1px);
-    border-color: var(--color-border-strong);
-    box-shadow: var(--shadow-raise);
+  /* The lift is a pointer affordance; on touch :hover would stick after a tap. */
+  @media (hover: hover) and (pointer: fine) {
+    .pay-tile:hover {
+      transform: translateY(-1px);
+      border-color: var(--color-border-strong);
+      box-shadow: var(--shadow-raise);
+    }
   }
   .pay-tile-hero {
     background:
@@ -219,9 +244,14 @@
 
   /* ── Sticky action bar ─────────────────────────────────────────────── */
 
+  /*
+   * 92px: the nav island's bottom edge sits at 68px and its progressive-blur
+   * strip (.nav-island::after, 24px) runs to 92px — anything stuck higher
+   * gets smeared by it.
+   */
   .pay-sticky {
     position: sticky;
-    top: 76px;
+    top: 92px;
     z-index: 30;
     background: color-mix(in oklch, var(--color-surface) 84%, transparent);
     backdrop-filter: blur(14px);
@@ -270,11 +300,16 @@
     animation: fade-up 0.2s var(--ease-out-quart) both;
   }
   .wiz-rail {
-    width: 6rem;
+    width: 4rem;
     height: 3px;
     overflow: hidden;
     border-radius: 999px;
     background: var(--color-border);
+  }
+  @media (min-width: 640px) {
+    .wiz-rail {
+      width: 6rem;
+    }
   }
   .wiz-rail > span {
     display: block;

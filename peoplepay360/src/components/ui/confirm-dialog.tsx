@@ -36,6 +36,9 @@ const TONE_BUTTON: Record<ConfirmTone, ButtonProps["variant"]> = {
 
 const EXIT_MS = 160
 
+/** Footer buttons: half the row and 40px tall on a phone, natural size from `sm`. */
+const footerButton = "min-h-10 flex-1 sm:min-h-0 sm:flex-none"
+
 /**
  * Press-and-hold confirm. The fill is a CSS animation started by the
  * `data-holding` attribute and cancelled the moment the pointer (or key)
@@ -161,9 +164,11 @@ export function ConfirmDialog({
       // its DOM parent, and useConfirm() mounts this wherever the trigger lives
       // — inside a right-aligned table cell for row actions, which otherwise
       // right-aligns the icon, title and description.
-      className="w-full max-w-md overflow-hidden rounded-2xl border border-border/70 bg-surface p-0 text-left text-base font-normal text-foreground shadow-modal"
+      // `max-w-none` below `sm`: the UA caps a modal dialog at
+      // calc(100% - 6px - 2em), which would shave the phone width.
+      className="w-[calc(100vw-1.5rem)] max-w-none overflow-hidden rounded-2xl border border-border/70 bg-surface p-0 text-left text-base font-normal text-foreground shadow-modal sm:w-full sm:max-w-md"
     >
-      <div className="stagger p-6">
+      <div className="stagger p-5 sm:p-6">
         <span
           className={cn(
             "inline-flex h-11 w-11 items-center justify-center rounded-xl ring-1",
@@ -181,16 +186,27 @@ export function ConfirmDialog({
           </p>
         )}
       </div>
-      <footer className="flex items-center justify-end gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
+      {/* On a phone the two buttons share the row as 40px-tall halves and the
+          hold hint takes a line above them; from `sm` they sit at their
+          natural size on the right with the hint on the left. */}
+      <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 bg-surface-muted/50 px-5 py-3.5 sm:px-6 sm:py-4">
         {hold && (
-          <span className="mr-auto text-xs text-subtle-foreground">Press and hold to confirm</span>
+          <span className="w-full text-xs text-subtle-foreground sm:mr-auto sm:w-auto">
+            Press and hold to confirm
+          </span>
         )}
-        <Button variant="ghost" onClick={onCancel} data-autofocus={danger || undefined}>
+        <Button
+          variant="ghost"
+          className={footerButton}
+          onClick={onCancel}
+          data-autofocus={danger || undefined}
+        >
           {cancelLabel}
         </Button>
         {hold ? (
           <HoldButton
             variant={TONE_BUTTON[tone]}
+            className={footerButton}
             onConfirm={onConfirm}
             data-autofocus={!danger || undefined}
           >
@@ -199,6 +215,7 @@ export function ConfirmDialog({
         ) : (
           <Button
             variant={TONE_BUTTON[tone]}
+            className={footerButton}
             onClick={onConfirm}
             data-autofocus={!danger || undefined}
           >

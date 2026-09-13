@@ -155,22 +155,25 @@ export function PayrunWizard({
       ? fmtRange(new Date(scope.periodStart), new Date(scope.periodEnd))
       : "—"
 
+  // 40px square so it is a comfortable tap target; the negative margin keeps
+  // the icon optically where the smaller button used to sit.
   const closeButton = (
     <button
       type="button"
       aria-label="Close"
       onClick={close}
-      className="rounded-lg p-1.5 text-muted-foreground transition-colors duration-100 hover:bg-surface-hover hover:text-foreground active:scale-95"
+      className="-mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-100 hover:bg-surface-hover hover:text-foreground active:scale-95"
     >
       <X className="h-4 w-4" aria-hidden />
     </button>
   )
 
   // The progress rail's fill scales to the step; the transition in
-  // payroll.css animates it between steps.
+  // payroll.css animates it between steps. Below `sm` the rail alone carries
+  // the progress — the label would crowd the heading out of a phone header.
   const stepIndicator = (
-    <div className="flex items-center gap-2.5" aria-label={`Step ${step} of 2`}>
-      <span className="text-[11px] font-medium tabular text-muted-foreground">
+    <div className="flex shrink-0 items-center gap-2.5" aria-label={`Step ${step} of 2`}>
+      <span className="hidden text-[11px] font-medium tabular text-muted-foreground sm:inline">
         Step {step} of 2
       </span>
       <span className="wiz-rail" aria-hidden>
@@ -179,6 +182,12 @@ export function PayrunWizard({
     </div>
   )
 
+  const header = "flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:px-6 sm:py-4"
+  const footer =
+    "flex shrink-0 flex-col gap-3 border-t border-border/70 bg-surface-muted/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4"
+  // The footer's button pair: 40px tall on a phone, natural height from `sm`.
+  const footerButtons = "flex shrink-0 items-center justify-end gap-2 *:min-h-10 sm:*:min-h-0"
+
   return (
     <>
       <Button onClick={() => setOpen(true)} className="pl-3">
@@ -186,27 +195,33 @@ export function PayrunWizard({
         New payrun
       </Button>
 
+      {/*
+       * `open:flex` rather than `flex`: an unconditional display would defeat
+       * the UA's `dialog:not([open]) { display: none }`. As a flex column
+       * capped at the viewport, the header and footer stay put and only the
+       * body scrolls — the whole dialog fits a phone.
+       */}
       <dialog
         ref={dialogRef}
         onClose={close}
-        className="w-full max-w-3xl rounded-2xl border border-border/70 bg-surface p-0 text-foreground shadow-modal backdrop:bg-transparent"
+        className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-none flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface p-0 text-foreground shadow-modal backdrop:bg-transparent open:flex sm:w-full sm:max-w-3xl"
       >
         {step === 1 ? (
-          <div key="step-1" className="wiz-step">
-            <header className="flex items-center justify-between border-b border-border/70 px-6 py-4">
-              <div>
+          <div key="step-1" className="wiz-step flex min-h-0 flex-col">
+            <header className={header}>
+              <div className="min-w-0">
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
                   New pay run
                 </p>
-                <h2 className="text-lg font-semibold tracking-tight">Define the scope</h2>
+                <h2 className="truncate text-lg font-semibold tracking-tight">Define the scope</h2>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 {stepIndicator}
                 {closeButton}
               </div>
             </header>
 
-            <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-6 py-6 md:grid-cols-2">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-x-8 gap-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 md:grid-cols-2">
               <Field label="Pay Run Name" htmlFor="name" hint="Defaults to the period month.">
                 <Input
                   id="name"
@@ -281,7 +296,8 @@ export function PayrunWizard({
                       onClick={() => toggleType(t)}
                       aria-pressed={scope.employeeTypes.includes(t)}
                       className={cn(
-                        "rounded-lg border px-2.5 py-1 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-95",
+                        // 40px tall below `sm` so each chip is a real tap target.
+                        "min-h-10 rounded-lg border px-3 py-1 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-95 sm:min-h-0 sm:px-2.5",
                         scope.employeeTypes.includes(t)
                           ? "border-primary/50 bg-primary-subtle text-primary"
                           : "border-border text-muted-foreground hover:border-border-strong hover:bg-surface-hover hover:text-foreground",
@@ -294,11 +310,11 @@ export function PayrunWizard({
               </Field>
             </div>
 
-            <footer className="flex items-center justify-between gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
+            <footer className={footer}>
               <p className="text-xs text-muted-foreground">
                 Continue only looks up who has a contract in this period. Nothing is written yet.
               </p>
-              <div className="flex items-center gap-2">
+              <div className={footerButtons}>
                 <Button variant="ghost" onClick={close} disabled={pending}>
                   Cancel
                 </Button>
@@ -310,23 +326,23 @@ export function PayrunWizard({
             </footer>
           </div>
         ) : (
-          <div key="step-2" className="wiz-step">
-            <header className="flex items-center justify-between border-b border-border/70 px-6 py-4">
-              <div>
+          <div key="step-2" className="wiz-step flex min-h-0 flex-col">
+            <header className={header}>
+              <div className="min-w-0">
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
                   New pay run
                 </p>
-                <h2 className="text-lg font-semibold tracking-tight">Confirm the employees</h2>
+                <h2 className="truncate text-lg font-semibold tracking-tight">Confirm the employees</h2>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 {stepIndicator}
                 {closeButton}
               </div>
             </header>
 
             {/* Resolution summary — what Continue found, before anything is written. */}
-            <dl className="stagger grid grid-cols-3 gap-4 border-b border-border/70 bg-surface-muted/40 px-6 py-3.5">
-              <div>
+            <dl className="stagger grid shrink-0 grid-cols-2 gap-3 border-b border-border/70 bg-surface-muted/40 px-4 py-3 sm:grid-cols-3 sm:gap-4 sm:px-6 sm:py-3.5">
+              <div className="col-span-2 sm:col-span-1">
                 <dt className={eyebrow}>Resolved</dt>
                 <dd className="mt-0.5 text-sm font-semibold tabular">
                   {eligible.length} employee{eligible.length === 1 ? "" : "s"}{" "}
@@ -343,24 +359,27 @@ export function PayrunWizard({
               </div>
             </dl>
 
-            <div className="flex items-center gap-3 border-b border-border/70 px-6 py-3">
+            <div className="flex shrink-0 items-center gap-2 border-b border-border/70 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search employees…"
-                className="h-8 w-72 text-xs"
+                className="h-8 min-w-0 flex-1 text-xs sm:w-72 sm:flex-none"
               />
-              <span className="ml-auto rounded-md bg-surface-muted px-2 py-1 text-xs tabular text-muted-foreground">
+              <span className="ml-auto shrink-0 rounded-md bg-surface-muted px-2 py-1 text-xs tabular text-muted-foreground">
                 <span className="font-semibold text-foreground">{selected.size}</span> of{" "}
                 {eligible.length} selected
               </span>
             </div>
 
-            <div className="max-h-[20rem] overflow-y-auto">
+            {/* The one scrolling region: capped at 20rem on wide screens, and on
+                a phone it takes whatever height the header, summary and footer
+                leave. Schedule and contract-start columns are `sm`-and-up. */}
+            <div className="min-h-0 flex-1 overflow-auto sm:max-h-[20rem]">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-10 bg-surface-muted backdrop-blur">
                   <tr className="border-b border-border/70">
-                    <th className="w-10 px-4 py-2.5">
+                    <th className="w-10 px-3 py-2.5 sm:px-4">
                       <Checkbox
                         checked={allVisibleSelected}
                         onChange={toggleAll}
@@ -371,8 +390,9 @@ export function PayrunWizard({
                       <th
                         key={h}
                         className={cn(
-                          "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                          "px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-4",
                           i === 3 ? "text-right" : "text-left",
+                          (i === 1 || i === 2) && "hidden sm:table-cell",
                         )}
                       >
                         {h}
@@ -398,14 +418,14 @@ export function PayrunWizard({
                         })
                       }
                     >
-                      <td className="px-4 py-2.5">
+                      <td className="px-3 py-2.5 sm:px-4">
                         <Checkbox
                           checked={selected.has(e.id)}
                           onChange={() => {}}
                           aria-label={`Select ${e.name}`}
                         />
                       </td>
-                      <td className="px-4 py-2.5 text-sm">
+                      <td className="px-3 py-2.5 text-sm sm:px-4">
                         <span className="font-medium">{e.name}</span>
                         <span className="ml-1.5 font-mono text-[11px] text-subtle-foreground">
                           {e.employeeCode}
@@ -416,16 +436,16 @@ export function PayrunWizard({
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-sm text-muted-foreground">
+                      <td className="hidden px-4 py-2.5 text-sm text-muted-foreground sm:table-cell">
                         {e.scheduleName ?? "—"}
                         {e.hoursPerWeek > 0 && (
                           <span className="ml-1 text-xs tabular">· {e.hoursPerWeek} h/wk</span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-sm tabular text-muted-foreground">
+                      <td className="hidden px-4 py-2.5 text-sm tabular text-muted-foreground sm:table-cell">
                         {e.contractStart}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-sm tabular">
+                      <td className="px-3 py-2.5 text-right text-sm tabular sm:px-4">
                         {formatMoneyCompact(e.wage)}
                       </td>
                     </tr>
@@ -434,11 +454,11 @@ export function PayrunWizard({
               </table>
             </div>
 
-            <footer className="flex items-center justify-between gap-2 border-t border-border/70 bg-surface-muted/50 px-6 py-4">
+            <footer className={footer}>
               <p className="text-xs text-muted-foreground">
                 Create writes the payrun and one draft payslip per selected employee.
               </p>
-              <div className="flex items-center gap-2">
+              <div className={footerButtons}>
                 <Button variant="ghost" onClick={() => setStep(1)} disabled={pending}>
                   Back
                 </Button>

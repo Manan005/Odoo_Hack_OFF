@@ -162,12 +162,23 @@ export function PayrunActionBar({
   }
 
   const primary = (step: Next) => (next === step ? "primary" : "outline")
+  // On a phone the next legal action takes a full row of its own and the
+  // other three share one compact, icon-less row beneath it (two rows of two
+  // when the run is complete and nothing is next). Every button is 40px tall
+  // there for the thumb. From `sm` up they flow inline at their usual size.
+  const hero = (step: Next) =>
+    next === step
+      ? "order-first col-span-full h-10 sm:order-none sm:h-9"
+      : "h-10 min-w-0 px-2 text-xs sm:h-9 sm:px-4 sm:text-sm"
+  const icon = (step: Next) => cn("h-4 w-4", next !== step && "hidden sm:block")
 
   return (
-    <div className="pay-sticky mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 px-4 py-2.5 shadow-card">
+    <div className="pay-sticky mb-5 flex flex-col gap-2 rounded-2xl border border-border/70 px-3 py-2.5 shadow-card sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:px-4">
       {dialog}
 
-      <p className="flex min-w-0 flex-1 items-center gap-2.5 text-xs text-muted-foreground">
+      {/* The hint needs a line of its own; below `sm` the bar is already two
+          rows of buttons, and the button labels say what comes next. */}
+      <p className="hidden min-w-0 flex-1 items-center gap-2.5 text-xs text-muted-foreground sm:flex">
         <span
           aria-hidden
           className={cn(
@@ -196,21 +207,28 @@ export function PayrunActionBar({
         </span>
       </p>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        className={cn(
+          "grid gap-2 sm:flex sm:flex-wrap sm:items-center",
+          next === "done" ? "grid-cols-2" : "grid-cols-3",
+        )}
+      >
         <Button
           variant={primary("compute")}
+          className={hero("compute")}
           disabled={pending || isPaid}
           loading={pending}
           loadingText="Computing…"
           title={isPaid ? "A paid run is a historical record" : undefined}
           onClick={onCompute}
         >
-          <Calculator className="h-4 w-4" aria-hidden />
+          <Calculator className={icon("compute")} aria-hidden />
           {status === PayrunStatus.DRAFT ? "Compute" : "Recompute"}
         </Button>
 
         <Button
           variant={primary("validate")}
+          className={hero("validate")}
           disabled={pending || status !== PayrunStatus.COMPUTED || validateBlocked}
           title={
             validateBlocked
@@ -221,27 +239,29 @@ export function PayrunActionBar({
           }
           onClick={() => run(() => validatePayrun(payrunId), "Payrun validated.")}
         >
-          <BadgeCheck className="h-4 w-4" aria-hidden />
+          <BadgeCheck className={icon("validate")} aria-hidden />
           Validate
         </Button>
 
         <Button
           variant={primary("pay")}
+          className={hero("pay")}
           disabled={pending || status !== PayrunStatus.VALIDATED}
           title={status !== PayrunStatus.VALIDATED ? "Validate the payrun first" : undefined}
           onClick={onMarkPaid}
         >
-          <Banknote className="h-4 w-4" aria-hidden />
+          <Banknote className={icon("pay")} aria-hidden />
           Mark paid
         </Button>
 
         <Button
           variant={primary("send")}
+          className={hero("send")}
           disabled={pending || status !== PayrunStatus.PAID}
           title={status !== PayrunStatus.PAID ? "Mark the payrun paid first" : undefined}
           onClick={onSendConfirm}
         >
-          <Send className="h-4 w-4" aria-hidden />
+          <Send className={icon("send")} aria-hidden />
           {allSent ? "Resend payslips" : "Send payslips"}
         </Button>
       </div>

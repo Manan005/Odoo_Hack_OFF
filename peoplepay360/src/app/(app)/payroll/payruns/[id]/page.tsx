@@ -172,7 +172,7 @@ export default async function PayrunDetailPage({
         allSent={allSent}
       />
 
-      <Surface className="mb-5 grid gap-6 px-6 py-5 lg:grid-cols-[1.35fr_1fr] lg:items-center">
+      <Surface className="mb-5 grid gap-5 px-4 py-4 sm:gap-6 sm:px-6 sm:py-5 lg:grid-cols-[1.35fr_1fr] lg:items-center">
         <PayrunStepper status={payrun.status} allSent={allSent} className="pt-1" />
         <dl className="stagger grid grid-cols-2 gap-4 border-t border-border/70 pt-4 text-sm lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
           <div>

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { saveStructure } from "@/actions/salary.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/field"
 
@@ -70,7 +70,7 @@ export function StructureForm({ initial }: { initial: StructureFormValues }) {
         </FieldGrid>
       </FormSection>
 
-      <div className="flex items-center gap-2">
+      <FormActions>
         <Button onClick={submit} loading={pending} loadingText="Saving…">
           {v.id ? "Save Changes" : "Create Structure"}
         </Button>
@@ -81,7 +81,7 @@ export function StructureForm({ initial }: { initial: StructureFormValues }) {
         >
           Cancel
         </Button>
-      </div>
+      </FormActions>
     </div>
   )
 }
