@@ -25,7 +25,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-pressed={resolved === "dark"}
       onClick={(e) => setTheme(resolved === "dark" ? "light" : "dark", originOf(e.currentTarget))}
       className={cn(
-        "relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground",
+        "relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground sm:h-9 sm:w-9",
         "transition-[background-color,color,transform,scale] duration-150 ease-out-quart",
         "hover:bg-surface-hover hover:text-foreground active:scale-95",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
@@ -76,7 +76,7 @@ export function AppearanceSegment() {
             aria-checked={active}
             onClick={(e) => setTheme(value, originOf(e.currentTarget))}
             className={cn(
-              "relative z-10 inline-flex h-7 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors duration-150",
+              "relative z-10 inline-flex h-9 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors duration-150 sm:h-8",
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >

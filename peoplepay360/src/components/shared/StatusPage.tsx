@@ -31,7 +31,7 @@ export function StatusPage({
   footer?: React.ReactNode
 }) {
   return (
-    <div className="relative flex flex-col items-center justify-center overflow-hidden px-6 py-24 text-center">
+    <div className="relative flex flex-col items-center justify-center overflow-hidden px-4 py-16 text-center sm:px-6 sm:py-24">
       <span
         aria-hidden
         className="status-stripes pointer-events-none absolute left-1/2 top-2 h-56 -translate-x-1/2 select-none"
@@ -64,7 +64,11 @@ export function StatusPage({
         {message}
       </p>
       {actions && (
-        <div className="relative mt-7 flex flex-wrap items-center justify-center gap-2">{actions}</div>
+        // Phone: one full-width action per row (shell.css stretches the
+        // Link-wrapped buttons too); from sm they sit in a wrapping row.
+        <div className="status-actions relative mt-7 flex w-full max-w-sm flex-col items-stretch gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
+          {actions}
+        </div>
       )}
       {footer && <div className="relative mt-10 w-full max-w-lg">{footer}</div>}
     </div>

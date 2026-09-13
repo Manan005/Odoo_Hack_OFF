@@ -14,6 +14,7 @@ import {
   Layers,
   LayoutDashboard,
   type LucideIcon,
+  Menu as MenuIcon,
   Monitor,
   Moon,
   Plus,
@@ -25,6 +26,7 @@ import {
   Tags,
   Users,
   Wallet,
+  X,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -42,8 +44,17 @@ import { cn } from "@/lib/utils"
 
 /** Any surface can open the palette by dispatching this on `window`. */
 export const PALETTE_EVENT = "pp360:palette"
-export function requestPalette() {
-  window.dispatchEvent(new CustomEvent(PALETTE_EVENT))
+
+/**
+ * `search` is the Ctrl/⌘K palette. `menu` is the same role-gated tree opened
+ * from the island's Menu button below xl: no query box, Navigate first, then
+ * Create and Appearance — so phone navigation is one surface, not a second
+ * drawer that would drift from the palette.
+ */
+export type PaletteMode = "search" | "menu"
+
+export function requestPalette(mode: PaletteMode = "search") {
+  window.dispatchEvent(new CustomEvent<PaletteMode>(PALETTE_EVENT, { detail: mode }))
 }
 
 const RECENT_KEY = "pp360-recent"
@@ -219,7 +230,11 @@ function Highlight({ text, positions }: { text: string; positions: number[] }) {
   return <>{out}</>
 }
 
-/** Search-shaped button for the island. Opens the palette via the event bus. */
+/**
+ * Search-shaped button for the island. Opens the palette via the event bus.
+ * Below lg it is a plain 36px icon tile; the shortcut chip joins at lg and
+ * the "Search…" label at xl, once the island has the room.
+ */
 export function PaletteTrigger({ className }: { className?: string }) {
   const mod = useModKey()
   return (
@@ -227,9 +242,10 @@ export function PaletteTrigger({ className }: { className?: string }) {
       type="button"
       aria-haspopup="dialog"
       aria-label="Search and jump to anything"
-      onClick={requestPalette}
+      onClick={() => requestPalette()}
       className={cn(
-        "group/trigger inline-flex h-9 items-center gap-2 rounded-lg border border-border/70 bg-surface-muted/70 pl-2.5 pr-1.5 text-[13px] text-muted-foreground",
+        "group/trigger inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface-muted/70 text-[13px] text-muted-foreground",
+        "lg:w-auto lg:justify-start lg:pl-2.5 lg:pr-1.5",
         "transition-[background-color,border-color,color,transform] duration-150 ease-out-quart",
         "hover:border-border-strong hover:bg-surface-hover hover:text-foreground active:scale-[0.98]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
@@ -248,7 +264,17 @@ export function PaletteTrigger({ className }: { className?: string }) {
 
 // ───────────────────────────── Palette ─────────────────────────────
 
-export function CommandPalette({ commands }: { commands: Command[] }) {
+export function CommandPalette({
+  commands,
+  onOpenChange,
+}: {
+  commands: Command[]
+  /**
+   * Fires with the mode on open and `null` on close, so the island's Menu
+   * button can report aria-expanded without owning the dialog.
+   */
+  onOpenChange?: (mode: PaletteMode | null) => void
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const { setTheme } = useTheme()
@@ -259,6 +285,7 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
   const listRef = useRef<HTMLDivElement>(null)
 
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<PaletteMode>("search")
   const [query, setQuery] = useState("")
   const [active, setActive] = useState(0)
   const [recents, setRecents] = useState<string[]>([])
@@ -266,6 +293,10 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
   const entries = useMemo<Entry[]>(() => [...commands, ...APPEARANCE], [commands])
 
   const hits = useMemo<Hit[]>(() => {
+    if (mode === "menu") {
+      // The plain tree in section order; recents would only reshuffle a menu.
+      return entries.map((entry) => ({ entry, bucket: entry.group, positions: [] }))
+    }
     const q = query.trim().toLowerCase()
     if (!q) {
       // Browse mode: recents first, then the whole tree by section.
@@ -281,7 +312,7 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
       .sort((a, b) => b.m.score - a.m.score)
       .slice(0, MAX_RESULTS)
       .map(({ entry, m }) => ({ entry, bucket: entry.group, positions: m.positions }))
-  }, [query, entries, recents])
+  }, [mode, query, entries, recents])
 
   // Display order is by bucket; the keyboard index runs across the flat list,
   // so each section carries the offset its first row starts at.
@@ -298,24 +329,35 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
   }, [hits])
   const ordered = useMemo(() => sections.flatMap((s) => s.rows), [sections])
 
-  const openPalette = useCallback(() => {
-    setRecents(readRecents())
-    setQuery("")
-    setActive(0)
-    setOpen(true)
-  }, [])
-  const closePalette = useCallback(() => setOpen(false), [])
+  const openPalette = useCallback(
+    (next: PaletteMode = "search") => {
+      setMode(next)
+      setRecents(readRecents())
+      setQuery("")
+      setActive(0)
+      setOpen(true)
+      onOpenChange?.(next)
+    },
+    [onOpenChange],
+  )
+  const closePalette = useCallback(() => {
+    setOpen(false)
+    onOpenChange?.(null)
+  }, [onOpenChange])
 
-  // The <dialog> mirrors `open`; focus lands on the input once it is modal.
+  // The <dialog> mirrors `open`. Focus lands on the input once it is modal;
+  // in menu mode there is no input, so the listbox itself takes focus and
+  // drives aria-activedescendant.
   useEffect(() => {
     const el = dialogRef.current
     if (!el) return
-    if (open && !el.open) {
-      el.showModal()
-      inputRef.current?.focus()
+    if (open) {
+      if (!el.open) el.showModal()
+      ;(mode === "menu" ? listRef.current : inputRef.current)?.focus()
+    } else if (el.open) {
+      el.close()
     }
-    if (!open && el.open) el.close()
-  }, [open])
+  }, [open, mode])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -325,7 +367,10 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
         else openPalette()
       }
     }
-    const onRequest = () => openPalette()
+    const onRequest = (e: Event) => {
+      const detail: unknown = (e as CustomEvent<unknown>).detail
+      openPalette(detail === "menu" ? "menu" : "search")
+    }
     document.addEventListener("keydown", onKey)
     window.addEventListener(PALETTE_EVENT, onRequest)
     return () => {
@@ -351,7 +396,12 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
       ?.scrollIntoView({ block: "nearest" })
   }
 
-  const onInputKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  /**
+   * Shared by the search input and, in menu mode, the listbox. Tab cycles
+   * rows only from the input; from the listbox it falls through so the Close
+   * button stays reachable by keyboard.
+   */
+  const onNavKey = (e: React.KeyboardEvent<HTMLElement>) => {
     const n = ordered.length
     switch (e.key) {
       case "ArrowDown":
@@ -363,6 +413,7 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
         if (n) moveTo((active - 1 + n) % n)
         break
       case "Tab":
+        if (e.currentTarget !== inputRef.current) return
         e.preventDefault()
         if (n) moveTo(e.shiftKey ? (active - 1 + n) % n : (active + 1) % n)
         break
@@ -393,51 +444,71 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
       (entry.group === "Navigate" && pathname.startsWith(`${entry.href}/`)))
 
   const activeId = ordered.length ? `pp360-opt-${Math.min(active, ordered.length - 1)}` : undefined
+  const isMenu = mode === "menu"
 
   return (
     <dialog
       ref={dialogRef}
+      id="pp360-palette"
       className="palette"
-      aria-label="Command palette"
+      aria-label={isMenu ? "Menu" : "Command palette"}
       onClose={closePalette}
       onClick={(e) => {
         if (e.target === e.currentTarget) closePalette()
       }}
     >
-      <div className="flex h-12 items-center gap-3 border-b border-border/70 px-4">
-        <Search className="h-4 w-4 shrink-0 text-subtle-foreground" aria-hidden />
-        <input
-          ref={inputRef}
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="pp360-palette-list"
-          aria-activedescendant={activeId}
-          aria-autocomplete="list"
-          aria-label="Search commands"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="Jump to a page, create a record, change appearance…"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setActive(0)
-          }}
-          onKeyDown={onInputKey}
-          className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-foreground placeholder:text-subtle-foreground focus:outline-none"
-        />
-        <kbd className="kbd" aria-hidden>
-          esc
-        </kbd>
+      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border/70 pl-4 pr-1.5">
+        {isMenu ? (
+          <>
+            <MenuIcon className="h-4 w-4 shrink-0 text-subtle-foreground" aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">Menu</span>
+          </>
+        ) : (
+          <>
+            <Search className="h-4 w-4 shrink-0 text-subtle-foreground" aria-hidden />
+            <input
+              ref={inputRef}
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="pp360-palette-list"
+              aria-activedescendant={activeId}
+              aria-autocomplete="list"
+              aria-label="Search commands"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="Jump to a page, create a record, change appearance…"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setActive(0)
+              }}
+              onKeyDown={onNavKey}
+              className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-foreground placeholder:text-subtle-foreground focus:outline-none"
+            />
+          </>
+        )}
+        {/* A real close control: Esc is not a thing on a phone or tablet. */}
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={closePalette}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-100 hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
       </div>
 
       <div
         ref={listRef}
         id="pp360-palette-list"
         role="listbox"
-        aria-label="Results"
+        aria-label={isMenu ? "Pages" : "Results"}
+        tabIndex={isMenu ? 0 : undefined}
+        aria-activedescendant={isMenu ? activeId : undefined}
+        onKeyDown={isMenu ? onNavKey : undefined}
         onMouseDown={(e) => e.preventDefault()}
-        className="max-h-[min(60vh,26rem)] overflow-y-auto overscroll-contain p-1.5"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 focus:outline-none sm:max-h-[min(60vh,26rem)]"
       >
         {ordered.length === 0 && (
           <div className="px-3 py-10 text-center">
@@ -476,11 +547,12 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
                     aria-selected={selected}
                     aria-current={current ? "page" : undefined}
                     data-index={i}
-                    onPointerMove={() => {
-                      if (active !== i) setActive(i)
+                    onPointerMove={(e) => {
+                      // A thumb scrolling the list is not hovering rows.
+                      if (e.pointerType !== "touch" && active !== i) setActive(i)
                     }}
                     onClick={() => run(entry)}
-                    className="palette-option flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-sm text-foreground"
+                    className="palette-option flex h-11 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-sm text-foreground sm:h-10"
                   >
                     <span
                       className={cn(
@@ -505,7 +577,7 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
                     )}
                     <CornerDownLeft
                       className={cn(
-                        "h-3.5 w-3.5 shrink-0 text-primary transition-opacity duration-100",
+                        "hidden h-3.5 w-3.5 shrink-0 text-primary transition-opacity duration-100 sm:block",
                         selected ? "opacity-100" : "opacity-0",
                       )}
                       aria-hidden
@@ -518,7 +590,8 @@ export function CommandPalette({ commands }: { commands: Command[] }) {
         })}
       </div>
 
-      <footer className="flex items-center justify-between border-t border-border/70 bg-surface-muted/50 px-3 py-2 text-[11px] text-subtle-foreground">
+      {/* Keyboard hints mean nothing on a phone; the Close button stands in. */}
+      <footer className="hidden shrink-0 items-center justify-between border-t border-border/70 bg-surface-muted/50 px-3 py-2 text-[11px] text-subtle-foreground sm:flex">
         <span className="flex items-center gap-3">
           <span className="flex items-center gap-1">
             <kbd className="kbd">↑</kbd>

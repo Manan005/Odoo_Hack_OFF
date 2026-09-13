@@ -31,7 +31,7 @@ export function BackButton() {
 export function SearchButton() {
   const mod = useModKey()
   return (
-    <Button variant="ghost" onClick={requestPalette}>
+    <Button variant="ghost" onClick={() => requestPalette()}>
       <Search className="h-4 w-4" aria-hidden />
       Search
       <span className="ml-1 hidden items-center gap-0.5 sm:inline-flex" aria-hidden>

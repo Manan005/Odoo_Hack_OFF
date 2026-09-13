@@ -18,6 +18,8 @@ export function Spotlight({
   ...props
 }: React.HTMLAttributes<HTMLElement> & { as?: "div" | "section" | "article" | "li" }) {
   const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    // A finger fires pointermove while scrolling; the glow would chase it.
+    if (e.pointerType !== "mouse") return
     const el = e.currentTarget
     const rect = el.getBoundingClientRect()
     el.style.setProperty("--mx", `${e.clientX - rect.left}px`)
@@ -45,6 +47,7 @@ export function Tilt({
   ...props
 }: React.HTMLAttributes<HTMLElement> & { as?: "div" | "section" | "article" | "li"; max?: number }) {
   const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== "mouse") return
     const el = e.currentTarget
     const rect = el.getBoundingClientRect()
     const px = (e.clientX - rect.left) / rect.width - 0.5

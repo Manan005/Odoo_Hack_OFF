@@ -42,7 +42,7 @@
     position: absolute;
     top: 50%;
     left: 0;
-    height: 2rem;
+    height: 2.25rem; /* = the h-9 nav items it sits behind */
     border-radius: var(--radius-lg);
     background: var(--color-primary-subtle);
     width: var(--pill-w, 0px);
@@ -125,8 +125,22 @@
     overflow: hidden;
     transform-origin: 50% 0;
   }
+  /* Header / list / footer stack; the list is the only scroll region, so a
+     max-height on the dialog clamps it rather than clipping the footer. */
   dialog.palette[open] {
+    display: flex;
+    flex-direction: column;
     animation: palette-in 0.22s var(--ease-out-quart) both;
+  }
+  /* Phone: a sheet hung 8px from the top, full width bar 8px gutters. The
+     UA's `inset: 0` is still in force, so margins alone place it. */
+  @media (width < 40rem) {
+    dialog.palette {
+      margin: 0.5rem 0.5rem auto;
+      width: auto;
+      max-width: none;
+      max-height: 85dvh;
+    }
   }
   .palette-option {
     transition:
@@ -180,6 +194,22 @@
   }
   .status-stripes > span:nth-child(3) {
     animation-delay: 0.16s;
+  }
+  /* Phone: a smaller watermark, and one full-width 40px action per row.
+     Buttons that arrive wrapped in a <Link> need the stretch passed through
+     the anchor, which is why this is not a utility on the wrapper. */
+  @media (width < 40rem) {
+    .status-code {
+      font-size: 112px;
+    }
+    .status-actions > a {
+      display: flex;
+    }
+    .status-actions > button,
+    .status-actions > a > button {
+      width: 100%;
+      min-height: 2.5rem;
+    }
   }
 }
 

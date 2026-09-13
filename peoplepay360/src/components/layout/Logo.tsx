@@ -38,11 +38,13 @@ export function Logo({
 }: {
   href?: string
   className?: string
-  wordmark?: boolean
+  /** `"sm"` shows the wordmark from the sm breakpoint up and the mark alone below it. */
+  wordmark?: boolean | "sm"
 }) {
   return (
     <Link
       href={href}
+      aria-label={wordmark === true ? undefined : "PeoplePay360"}
       className={cn(
         "group flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
         className,
@@ -50,7 +52,12 @@ export function Logo({
     >
       <LogoMark />
       {wordmark && (
-        <span className="text-[15px] font-semibold tracking-tight">
+        <span
+          className={cn(
+            "text-[15px] font-semibold tracking-tight",
+            wordmark === "sm" && "hidden sm:inline",
+          )}
+        >
           PeoplePay<span className="text-primary">360</span>
         </span>
       )}

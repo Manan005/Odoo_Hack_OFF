@@ -82,18 +82,29 @@
     );
     transition: opacity 0.35s var(--ease-out-quart);
   }
-  .spot:hover::before {
-    opacity: 1;
+  /*
+   * Hover-driven effects only where a real hover exists. On touch, :hover
+   * sticks after a tap and pointermove fires during scroll, so the glow and
+   * the tilt would jitter and never settle.
+   */
+  @media (hover: hover) and (pointer: fine) {
+    .spot:hover::before {
+      opacity: 1;
+    }
   }
 
   /* Perspective tilt; --rx/--ry are written by <Tilt> and reset on leave. */
   .tilt {
-    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-    transition: transform 0.3s var(--ease-out-quart);
     transform-style: preserve-3d;
   }
-  .tilt:hover {
-    transition-duration: 0.08s;
+  @media (hover: hover) and (pointer: fine) {
+    .tilt {
+      transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+      transition: transform 0.3s var(--ease-out-quart);
+    }
+    .tilt:hover {
+      transition-duration: 0.08s;
+    }
   }
 
   /* Accent swatch: painted with the primary recipe at the swatch's hue. */

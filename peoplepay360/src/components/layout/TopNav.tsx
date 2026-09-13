@@ -1,11 +1,17 @@
 "use client"
 
-import { ChevronDown, Keyboard, LogOut } from "lucide-react"
+import { ChevronDown, Keyboard, LogOut, Menu } from "lucide-react"
 import Link, { useLinkStatus } from "next/link"
 import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { logoutAction } from "@/actions/auth.actions"
-import { CommandPalette, PaletteTrigger, useModKey } from "@/components/layout/CommandPalette"
+import {
+  CommandPalette,
+  PaletteTrigger,
+  requestPalette,
+  useModKey,
+  type PaletteMode,
+} from "@/components/layout/CommandPalette"
 import { commandsFor } from "@/components/layout/commands"
 import { Logo } from "@/components/layout/Logo"
 import { AccentSwatches } from "@/components/theme/AccentSwatches"
@@ -86,7 +92,7 @@ function NavLabel({ children }: { children: React.ReactNode }) {
 
 const navItemClass = (active: boolean) =>
   cn(
-    "nav-item relative z-10 inline-flex h-8 items-center gap-1 rounded-lg px-3 text-[13px] font-medium",
+    "nav-item relative z-10 inline-flex h-9 items-center gap-1 rounded-lg px-3 text-[13px] font-medium",
     "transition-colors duration-150 ease-out-quart",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
     active ? "text-primary" : "text-muted-foreground hover:text-foreground",
@@ -97,7 +103,7 @@ const menuPanelClass =
 
 const menuItemClass = (active: boolean) =>
   cn(
-    "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors duration-100",
+    "flex min-h-10 items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors duration-100",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60",
     active ? "bg-primary-subtle text-primary" : "text-foreground hover:bg-surface-hover",
   )
@@ -238,8 +244,10 @@ function UserMenu({ name, roleLabel }: { name: string; roleLabel: string }) {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
+        aria-label={`Account: ${name}`}
         className={cn(
-          "flex h-9 items-center gap-2 rounded-lg pl-1 pr-2 transition-colors duration-150",
+          // Avatar-only below sm: a 36px square tile; name, role and chevron join at sm.
+          "flex h-9 shrink-0 items-center gap-2 rounded-lg px-1 transition-colors duration-150 sm:pr-2",
           "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
           open && "bg-surface-hover",
         )}
@@ -253,7 +261,7 @@ function UserMenu({ name, roleLabel }: { name: string; roleLabel: string }) {
         </span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+            "hidden h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 sm:block",
             open && "rotate-180",
           )}
           aria-hidden
@@ -321,7 +329,7 @@ function UserMenu({ name, roleLabel }: { name: string; roleLabel: string }) {
             <button
               type="submit"
               role="menuitem"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors duration-100 hover:bg-danger-subtle hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
+              className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors duration-100 hover:bg-danger-subtle hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
             >
               <LogOut className="h-4 w-4 opacity-70" aria-hidden />
               Sign out
@@ -346,6 +354,10 @@ export function TopNav({
   const navRef = useRef<HTMLElement>(null)
   const commands = useMemo(() => commandsFor(items), [items])
 
+  // Mirrors the palette's open state so the Menu button can say aria-expanded.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const onPaletteChange = useCallback((mode: PaletteMode | null) => setMenuOpen(mode === "menu"), [])
+
   const isActive = (item: NavItem) =>
     item.children
       ? item.children.some((c) => pathname.startsWith(c.href))
@@ -358,6 +370,12 @@ export function TopNav({
     const nav = navRef.current
     if (!nav) return
     const measure = () => {
+      // Below xl the inline nav is display:none (the Menu button stands in):
+      // there is nothing to place and every rect would read zero.
+      if (nav.offsetParent === null) {
+        nav.style.setProperty("--pill-o", "0")
+        return
+      }
       const el = nav.querySelector<HTMLElement>('[data-active="true"]')
       if (!el) {
         nav.style.setProperty("--pill-o", "0")
@@ -378,16 +396,35 @@ export function TopNav({
   }, [pathname, items])
 
   return (
-    <header className="nav-shell sticky top-0 z-40 px-4 pb-2 pt-3 sm:px-6">
-      <div className="nav-island relative mx-auto flex h-14 max-w-[1440px] items-center gap-2 rounded-2xl border border-border/70 bg-surface/80 px-3 shadow-nav backdrop-blur-xl">
-        <Logo className="mr-2 pl-1" />
+    <header className="nav-shell sticky top-0 z-40 overflow-x-clip px-4 pb-2 pt-3 sm:px-6">
+      <div className="nav-island relative mx-auto flex h-14 min-w-0 max-w-[1440px] items-center gap-2 rounded-2xl border border-border/70 bg-surface/80 px-3 shadow-nav backdrop-blur-xl">
+        <Logo className="mr-2 shrink-0 pl-1" wordmark="sm" />
+
+        {/* Below xl the six entries do not fit beside the island controls, so
+            the tree opens in the palette's menu mode instead. */}
+        <button
+          type="button"
+          aria-label="Menu"
+          aria-haspopup="dialog"
+          aria-expanded={menuOpen}
+          aria-controls="pp360-palette"
+          onClick={() => requestPalette("menu")}
+          className={cn(
+            "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground xl:hidden",
+            "transition-colors duration-150 ease-out-quart hover:bg-surface-hover hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+            menuOpen && "bg-surface-hover text-foreground",
+          )}
+        >
+          <Menu className="h-5 w-5" aria-hidden />
+        </button>
 
         {/* No overflow here: the dropdown panels are absolutely positioned
             inside this nav and an overflow-auto container would clip them. */}
         <nav
           ref={navRef}
           aria-label="Primary"
-          className="relative flex min-w-0 flex-1 items-center gap-0.5"
+          className="relative hidden min-w-0 flex-1 items-center gap-0.5 xl:flex"
         >
           <span aria-hidden className="nav-pill" />
           {items.map((item) =>
@@ -412,13 +449,16 @@ export function TopNav({
           )}
         </nav>
 
-        <PaletteTrigger />
-        <ThemeToggle />
-        <div className="mx-1 h-6 w-px bg-border/80" aria-hidden />
-        <UserMenu name={userName} roleLabel={roleLabel} />
+        {/* ml-auto keeps the controls on the right edge while the nav is hidden. */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <PaletteTrigger />
+          <ThemeToggle />
+          <div className="mx-1 h-6 w-px bg-border/80" aria-hidden />
+          <UserMenu name={userName} roleLabel={roleLabel} />
+        </div>
       </div>
 
-      <CommandPalette commands={commands} />
+      <CommandPalette commands={commands} onOpenChange={onPaletteChange} />
     </header>
   )
 }
