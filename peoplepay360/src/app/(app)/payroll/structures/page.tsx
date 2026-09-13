@@ -19,21 +19,31 @@ type Row = {
   _count: { rules: number; contracts: number; payruns: number }
 }
 
+// A phone keeps the name and status; rule and employee counts join at `md`,
+// the payrun count at `lg`.
 const columns: Column<Row>[] = [
   { key: "name", header: "Structure Name", render: (r) => r.name },
   {
     key: "rules",
     header: "Rules",
     numeric: true,
+    hideBelow: "md",
     render: (r) => `${r._count.rules} rules`,
   },
   {
     key: "employees",
     header: "Employees",
     numeric: true,
+    hideBelow: "md",
     render: (r) => `${r._count.contracts} employees`,
   },
-  { key: "payruns", header: "Payruns", numeric: true, render: (r) => r._count.payruns },
+  {
+    key: "payruns",
+    header: "Payruns",
+    numeric: true,
+    hideBelow: "lg",
+    render: (r) => r._count.payruns,
+  },
   { key: "status", header: "Active", render: (r) => <ActiveBadge active={r.active} /> },
 ]
 

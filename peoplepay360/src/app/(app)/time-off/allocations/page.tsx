@@ -46,16 +46,20 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
         </span>
       ),
     },
+    // A phone keeps employee, type, remaining and status; the two figures the
+    // remainder derives from join at `md`.
     {
       key: "allocated",
       header: "Allocated",
       numeric: true,
+      hideBelow: "md",
       render: (r) => formatDuration(String(r.allocated), r.type.unit),
     },
     {
       key: "taken",
       header: "Taken",
       numeric: true,
+      hideBelow: "md",
       render: (r) => formatDuration(String(r.taken), r.type.unit),
     },
     {
@@ -93,9 +97,11 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
   ]
 
   if (isHr) {
+    // Below `md` the pair lives on the detail page, which the row opens.
     base.push({
       key: "actions",
       header: "",
+      hideBelow: "md",
       className: "text-right",
       render: (r) => <ApprovalButtons id={r.id} kind="allocation" status={r.status} />,
     })

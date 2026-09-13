@@ -33,7 +33,8 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
       header: "Employee",
       render: (r) => `${r.employee.firstName} ${r.employee.lastName}`,
     },
-    { key: "type", header: "Type", render: (r) => r.type.name },
+    // A phone keeps employee, period, duration and status; the type joins at `md`.
+    { key: "type", header: "Type", hideBelow: "md", render: (r) => r.type.name },
     {
       key: "period",
       header: "Period",
@@ -58,9 +59,11 @@ const columnsFor = (isHr: boolean): Column<Row>[] => {
   ]
 
   if (isHr) {
+    // Below `md` the pair lives on the detail page, which the row opens.
     base.push({
       key: "actions",
       header: "",
+      hideBelow: "md",
       className: "text-right",
       render: (r) => <ApprovalButtons id={r.id} kind="request" status={r.status} />,
     })

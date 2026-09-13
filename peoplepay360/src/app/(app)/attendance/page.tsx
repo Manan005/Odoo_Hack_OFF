@@ -36,11 +36,20 @@ const columns: Column<Row>[] = [
     header: "Employee",
     render: (r) => `${r.employee.firstName} ${r.employee.lastName}`,
   },
+  // A phone keeps employee, date, worked hours and status; the times join at
+  // `md`, overtime at `lg`.
   { key: "date", header: "Date", render: (r) => fmtDateCompact(r.checkIn) },
-  { key: "in", header: "Check In", className: "tabular", render: (r) => fmtTime(r.checkIn) },
+  {
+    key: "in",
+    header: "Check In",
+    hideBelow: "md",
+    className: "tabular",
+    render: (r) => fmtTime(r.checkIn),
+  },
   {
     key: "out",
     header: "Check Out",
+    hideBelow: "md",
     className: "tabular",
     render: (r) =>
       r.checkOut ? (
@@ -64,6 +73,7 @@ const columns: Column<Row>[] = [
     key: "ot",
     header: "Overtime",
     numeric: true,
+    hideBelow: "lg",
     render: (r) =>
       Number(r.overtime) > 0 ? (
         <span className="font-medium text-success">+{formatHours(String(r.overtime))}</span>
@@ -104,7 +114,8 @@ function QuickFilter({ label, href, active }: { label: string; href: string; act
       href={href}
       aria-pressed={active}
       className={cn(
-        "inline-flex h-8 items-center rounded-lg px-2.5 text-xs font-medium ring-1 ring-inset",
+        // Thumb-height on a phone, chip-height from `sm` up.
+        "inline-flex h-10 items-center rounded-lg px-3 text-xs font-medium ring-1 ring-inset sm:h-8 sm:px-2.5",
         "transition-[background-color,color,box-shadow,transform] duration-150 ease-out-quart active:scale-95",
         active
           ? "bg-primary text-primary-fg ring-primary shadow-primary"
@@ -246,7 +257,7 @@ export default async function AttendancePage({
           ) : undefined
         }
       >
-        <div className="flex items-center gap-1.5" aria-label="Quick filters">
+        <div className="flex flex-wrap items-center gap-1.5" aria-label="Quick filters">
           <QuickFilter
             label="Today"
             active={today === "1"}

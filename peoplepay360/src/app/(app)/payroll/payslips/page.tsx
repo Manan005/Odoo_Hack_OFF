@@ -44,16 +44,40 @@ const columns: Column<Row>[] = [
         <span className="text-muted-foreground">—</span>
       ),
   },
-  { key: "period", header: "Period", render: (r) => fmtRange(r.periodStart, r.periodEnd) },
-  { key: "basic", header: "Basic", numeric: true, render: (r) => formatMoneyCompact(String(r.basic)) },
-  { key: "gross", header: "Gross", numeric: true, render: (r) => formatMoneyCompact(String(r.gross)) },
+  // A phone keeps employee, warning, net and status; period and gross join at
+  // `md`, basic and structure at `lg`.
+  {
+    key: "period",
+    header: "Period",
+    hideBelow: "md",
+    render: (r) => fmtRange(r.periodStart, r.periodEnd),
+  },
+  {
+    key: "basic",
+    header: "Basic",
+    numeric: true,
+    hideBelow: "lg",
+    render: (r) => formatMoneyCompact(String(r.basic)),
+  },
+  {
+    key: "gross",
+    header: "Gross",
+    numeric: true,
+    hideBelow: "md",
+    render: (r) => formatMoneyCompact(String(r.gross)),
+  },
   {
     key: "net",
     header: "Net",
     numeric: true,
     render: (r) => <span className="font-semibold">{formatMoneyCompact(String(r.net))}</span>,
   },
-  { key: "structure", header: "Structure", render: (r) => r.payrun.structure.name },
+  {
+    key: "structure",
+    header: "Structure",
+    hideBelow: "lg",
+    render: (r) => r.payrun.structure.name,
+  },
   { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
 ]
 

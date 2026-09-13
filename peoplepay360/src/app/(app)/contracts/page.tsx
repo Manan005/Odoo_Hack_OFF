@@ -37,10 +37,18 @@ const columns: Column<Row>[] = [
     header: "Employee",
     render: (r) => `${r.employee.firstName} ${r.employee.lastName}`,
   },
-  { key: "start", header: "Start", className: "tabular", render: (r) => fmtDateCompact(r.startDate) },
+  // A phone keeps reference, employee, wage and status; the dates join at `md` / `lg`.
+  {
+    key: "start",
+    header: "Start",
+    hideBelow: "md",
+    className: "tabular",
+    render: (r) => fmtDateCompact(r.startDate),
+  },
   {
     key: "end",
     header: "End",
+    hideBelow: "lg",
     className: "tabular",
     render: (r) =>
       r.endDate ? fmtDateCompact(r.endDate) : <span className="text-muted-foreground">open-ended</span>,

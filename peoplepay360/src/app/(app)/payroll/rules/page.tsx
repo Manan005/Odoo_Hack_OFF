@@ -47,10 +47,13 @@ const columns: Column<Row>[] = [
       </span>
     ),
   },
+  // A phone keeps sequence, name, category and active; the code joins at `md`,
+  // structure and the expression at `lg`.
   { key: "name", header: "Rule Name", render: (r) => r.name },
   {
     key: "code",
     header: "Code",
+    hideBelow: "md",
     render: (r) => (
       <span className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground ring-1 ring-inset ring-border/70">
         {r.code}
@@ -71,10 +74,11 @@ const columns: Column<Row>[] = [
       </span>
     ),
   },
-  { key: "structure", header: "Structure", render: (r) => r.structure.name },
+  { key: "structure", header: "Structure", hideBelow: "lg", render: (r) => r.structure.name },
   {
     key: "computation",
     header: "Computation",
+    hideBelow: "lg",
     render: (r) => <CopyChip text={ruleExpression(r)} className="max-w-[18rem]" />,
   },
   { key: "active", header: "Active", render: (r) => <ActiveBadge active={r.active} /> },

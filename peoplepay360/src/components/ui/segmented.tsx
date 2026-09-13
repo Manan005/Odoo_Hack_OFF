@@ -79,7 +79,9 @@ export function Segmented<T extends string>({
             className={cn(
               "relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-              size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-sm",
+              // `sm` is the compact desktop size; on a phone it grows to the
+              // `md` dimensions so a segment is a thumb target.
+              size === "sm" ? "h-8 px-3 text-sm sm:h-7 sm:px-2.5 sm:text-xs" : "h-8 px-3 text-sm",
               active
                 ? "text-foreground"
                 : "text-muted-foreground hover:bg-surface-hover/60 hover:text-foreground",

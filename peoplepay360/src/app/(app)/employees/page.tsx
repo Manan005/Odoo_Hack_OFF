@@ -25,16 +25,20 @@ type Row = {
   jobPosition: { name: string } | null
 }
 
+// A phone keeps name, position and status; code and department join at `md`,
+// the email at `lg`.
 const columns: Column<Row>[] = [
   { key: "employee", header: "Employee", render: (r) => `${r.firstName} ${r.lastName}` },
   {
     key: "code",
     header: "Code",
+    hideBelow: "md",
     render: (r) => <span className="font-mono text-[13px] text-muted-foreground">{r.employeeCode}</span>,
   },
   {
     key: "workEmail",
     header: "Work Email",
+    hideBelow: "lg",
     render: (r) => r.workEmail ?? <span className="text-muted-foreground">—</span>,
   },
   {
@@ -45,6 +49,7 @@ const columns: Column<Row>[] = [
   {
     key: "department",
     header: "Department",
+    hideBelow: "md",
     render: (r) => r.department?.name ?? <span className="text-muted-foreground">—</span>,
   },
   { key: "status", header: "Status", render: (r) => <ActiveBadge active={r.active} /> },

@@ -23,21 +23,29 @@ type Row = {
   company: { name: string }
 }
 
+// A phone keeps name, hours and status; type and days join at `md`, company at `lg`.
 const columns: Column<Row>[] = [
   { key: "name", header: "Schedule Name", render: (r) => r.name },
   {
     key: "type",
     header: "Calendar Type",
+    hideBelow: "md",
     render: (r) => (r.calendarType === CalendarType.FIXED ? "Fixed" : "Variable"),
   },
-  { key: "days", header: "Days / Week", numeric: true, render: (r) => r.daysPerWeek },
+  {
+    key: "days",
+    header: "Days / Week",
+    numeric: true,
+    hideBelow: "md",
+    render: (r) => r.daysPerWeek,
+  },
   {
     key: "hours",
     header: "Hours / Week",
     numeric: true,
     render: (r) => <span className="font-medium">{formatWeeklyHours(Number(r.hoursPerWeek))}</span>,
   },
-  { key: "company", header: "Company", render: (r) => r.company.name },
+  { key: "company", header: "Company", hideBelow: "lg", render: (r) => r.company.name },
   { key: "status", header: "Status", render: (r) => <ActiveBadge active={r.active} /> },
 ]
 

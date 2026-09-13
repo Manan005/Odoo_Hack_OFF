@@ -33,9 +33,11 @@ function CountChip({ value, noun }: { value: number; noun: string }) {
   )
 }
 
+// A phone keeps the type, whether it needs an allocation, and status; unit and
+// approval join at `md`, paid and usage at `lg`.
 const columns: Column<Row>[] = [
   { key: "name", header: "Type", render: (r) => r.name },
-  { key: "unit", header: "Unit", render: (r) => UNIT_LABEL[r.unit] },
+  { key: "unit", header: "Unit", hideBelow: "md", render: (r) => UNIT_LABEL[r.unit] },
   {
     key: "allocation",
     header: "Allocation",
@@ -46,16 +48,23 @@ const columns: Column<Row>[] = [
         <span className="text-muted-foreground">Not required</span>
       ),
   },
-  { key: "approval", header: "Approval", render: (r) => APPROVAL_LABEL[r.approvalMode] },
+  {
+    key: "approval",
+    header: "Approval",
+    hideBelow: "md",
+    render: (r) => APPROVAL_LABEL[r.approvalMode],
+  },
   {
     key: "paid",
     header: "Paid",
+    hideBelow: "lg",
     render: (r) => (r.isPaid ? "Paid" : <span className="font-medium text-warning">Unpaid</span>),
   },
   {
     key: "usage",
     header: "In Use",
     numeric: true,
+    hideBelow: "lg",
     // Both figures are the `_count` the page fetched, shown apart rather than
     // summed so each reads as what it is.
     render: (r) => (

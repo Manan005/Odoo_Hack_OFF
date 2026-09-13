@@ -29,7 +29,8 @@ function PageButton({
       // clean URL rather than "?page=1".
       onClick={() => write({ page: to === 1 ? null : String(to) })}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-surface",
+        // Thumb-sized on a phone, compact from `sm` up.
+        "inline-flex h-10 w-10 items-center justify-center rounded-md border border-border/80 bg-surface sm:h-7 sm:w-7",
         "transition-[background-color,border-color,color,scale] duration-150 ease-out-quart",
         disabled
           ? "cursor-not-allowed text-subtle-foreground opacity-50"
@@ -54,18 +55,18 @@ export function Pagination({ info }: { info: PageInfo }) {
   const single = info.pageCount <= 1
 
   return (
-    <div className="flex w-full items-center justify-end gap-4">
+    <div className="flex w-full flex-wrap items-center justify-end gap-x-4 gap-y-2">
       <NumberTicker
         value={`${nf.format(info.from)}–${nf.format(info.to)} / ${nf.format(info.total)}`}
         delayStep={25}
       />
 
       {!single && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span key={info.page} className="animate-fade-in tabular text-subtle-foreground">
             Page {nf.format(info.page)} of {nf.format(info.pageCount)}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-1">
             <PageButton
               label="First page"
               icon={ChevronsLeft}

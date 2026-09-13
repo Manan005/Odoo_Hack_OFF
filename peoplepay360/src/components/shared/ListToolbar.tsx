@@ -30,6 +30,14 @@ export function useSearchParamWriter() {
   }
 }
 
+/*
+ * A phone-sized hit box (40px) on a control that stays visually small: the
+ * pseudo-element takes the taps, the button keeps its 20–22px face and hover
+ * tint. Dropped from `sm` up, where a pointer is precise and the chips sit
+ * close enough that an invisible halo would steal clicks from a neighbour.
+ */
+const PHONE_HIT = "relative max-sm:before:absolute max-sm:before:content-['']"
+
 export function FilterChip({ label, paramKey }: { label: string; paramKey: string }) {
   const write = useSearchParamWriter()
   return (
@@ -39,7 +47,11 @@ export function FilterChip({ label, paramKey }: { label: string; paramKey: strin
         type="button"
         aria-label={`Remove filter ${label}`}
         onClick={() => write({ [paramKey]: null })}
-        className="rounded-md p-1 transition-colors duration-100 hover:bg-primary/15 active:scale-90"
+        className={cn(
+          "rounded-md p-1 transition-colors duration-100 hover:bg-primary/15 active:scale-90",
+          PHONE_HIT,
+          "max-sm:before:-inset-2.5",
+        )}
       >
         <X className="h-3 w-3" aria-hidden />
       </button>
@@ -47,7 +59,7 @@ export function FilterChip({ label, paramKey }: { label: string; paramKey: strin
   )
 }
 
-function SearchBox({ placeholder }: { placeholder: string }) {
+function SearchBox({ placeholder, className }: { placeholder: string; className?: string }) {
   const params = useSearchParams()
   const write = useSearchParamWriter()
   const urlValue = params.get("q") ?? ""
@@ -86,7 +98,7 @@ function SearchBox({ placeholder }: { placeholder: string }) {
   }, [])
 
   return (
-    <div className="group relative w-72">
+    <div className={cn("group relative w-full sm:w-72", className)}>
       <Search
         className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle-foreground transition-colors group-focus-within:text-primary"
         aria-hidden
@@ -97,14 +109,18 @@ function SearchBox({ placeholder }: { placeholder: string }) {
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="h-9 pl-9 pr-9 text-[13px]"
+        className="h-10 pl-9 pr-9 text-[13px] sm:h-9"
       />
       {value ? (
         <button
           type="button"
           aria-label="Clear search"
           onClick={() => setValue("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-subtle-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+          className={cn(
+            "absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-subtle-foreground transition-colors hover:bg-surface-hover hover:text-foreground",
+            PHONE_HIT,
+            "max-sm:before:-inset-[9px]",
+          )}
         >
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -153,8 +169,21 @@ export function ListToolbar({
   children?: React.ReactNode
 }) {
   // `icon-spin-hover`: the Plus turns a quarter on hover — "this opens something".
-  const newClass = cn(buttonVariants({ variant: "primary", size: "md" }), "icon-spin-hover pl-3")
+  // 40px tall on a phone (a thumb target), the regular 36px from `sm` up.
+  const newClass = cn(
+    buttonVariants({ variant: "primary", size: "md" }),
+    "icon-spin-hover order-1 h-10 pl-3 sm:h-9",
+  )
   return (
+    /*
+     * One wrapping row from `sm` up: New · search · chips · [stats] · switcher.
+     * On a phone the `order-*` values re-deal the same children into rows:
+     * New and the view switcher share the first (the switcher's `ml-auto`
+     * pushes it to the edge), the search takes a full row of its own, and
+     * chips and page-specific controls wrap below. When there are children,
+     * `ml-auto` moves to them from `sm` up so the two auto margins never
+     * split the free space between them.
+     */
     <div className="mb-3 flex min-h-9 flex-wrap items-center gap-2">
       {newHref && (
         <Link href={newHref} className={newClass}>
@@ -169,13 +198,19 @@ export function ListToolbar({
         </button>
       )}
 
-      {searchPlaceholder && <SearchBox placeholder={searchPlaceholder} />}
-      {chips && <div className="flex items-center gap-1.5">{chips}</div>}
+      {searchPlaceholder && (
+        <SearchBox placeholder={searchPlaceholder} className="order-3 basis-full sm:order-2 sm:basis-auto" />
+      )}
+      {chips && <div className="order-4 flex flex-wrap items-center gap-1.5 sm:order-3">{chips}</div>}
 
-      <div className="ml-auto flex items-center gap-2">
-        {children}
-        {views && <ViewSwitcher views={views} />}
-      </div>
+      {children && (
+        <div className="order-5 flex flex-wrap items-center gap-2 sm:order-4 sm:ml-auto">{children}</div>
+      )}
+      {views && (
+        <div className={cn("order-2 ml-auto sm:order-5", children && "sm:ml-0")}>
+          <ViewSwitcher views={views} />
+        </div>
+      )}
     </div>
   )
 }

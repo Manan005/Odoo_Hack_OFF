@@ -25,18 +25,22 @@ type Row = {
   totalNet: unknown
 }
 
+// A phone keeps the run, its net and status; the period joins at `md`,
+// structure and headcount at `lg`.
 const columns: Column<Row>[] = [
   { key: "name", header: "Name", render: (r) => r.name },
   {
     key: "period",
     header: "Period",
+    hideBelow: "md",
     render: (r) => fmtRange(r.periodStart, r.periodEnd),
   },
-  { key: "structure", header: "Structure", render: (r) => r.structure.name },
+  { key: "structure", header: "Structure", hideBelow: "lg", render: (r) => r.structure.name },
   {
     key: "employees",
     header: "Employees",
     numeric: true,
+    hideBelow: "lg",
     render: (r) => `${r._count.payslips} employees`,
   },
   {

@@ -27,14 +27,17 @@ const columns: Column<Row>[] = [
     render: (r) =>
       r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : r.email,
   },
+  // A phone keeps the user, roles and status; email and employee join at `md`.
   {
     key: "email",
     header: "Work Email",
+    hideBelow: "md",
     render: (r) => <span className="font-mono text-[13px]">{r.email}</span>,
   },
   {
     key: "employee",
     header: "Employee",
+    hideBelow: "md",
     render: (r) =>
       r.employee ? (
         `${r.employee.firstName} ${r.employee.lastName}`

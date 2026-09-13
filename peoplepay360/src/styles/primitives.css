@@ -158,6 +158,16 @@
   }
 }
 
+/* Sticky-column hairline, progressed by the table's own sideways scroll. */
+@keyframes hairline-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ── Components ─────────────────────────────────────────────────────── */
 
 @layer components {
@@ -376,6 +386,39 @@
   .stagger > .tilt {
     animation-fill-mode: backwards;
   }
+
+  /*
+   * The sticky identity column of a scrolling table (DataTable,
+   * SimpleNameList). Its right edge carries a 1px hairline that fades in over
+   * the first 24px of sideways scroll — a resting table shows no seam, a
+   * scrolled one shows where the pinned cell ends. The timeline is the
+   * nearest inline scroller, so the cell needs no JS and no wrapper contract
+   * beyond "the parent scrolls". Engines without scroll-driven animations
+   * (Firefox stable) keep the hairline below `md`, where every list scrolls.
+   */
+  .sticky-col::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 1px;
+    background: var(--color-border);
+    pointer-events: none;
+    opacity: 0;
+  }
+  @supports (animation-timeline: scroll()) {
+    .sticky-col::after {
+      animation: hairline-in linear both;
+      animation-timeline: scroll(nearest inline);
+      animation-range: 0px 24px;
+    }
+  }
+  @supports not (animation-timeline: scroll()) {
+    @media (max-width: 47.99rem) {
+      .sticky-col::after {
+        opacity: 1;
+      }
+    }
+  }
 }
 
 /* ── Utilities (variant-capable) ────────────────────────────────────── */
@@ -384,4 +427,18 @@
 @utility skeleton-text {
   height: 0.9em;
   border-radius: 4px;
+}
+
+/* Scroll cue for contained tables: edge shadows that only appear where more
+   columns exist beyond the edge (the local-attachment gradients cover the
+   scroll-attachment shadows until the content moves). */
+@layer components {
+  [data-table-scroll] {
+    background:
+      linear-gradient(to right, var(--color-surface) 40%, transparent) left / 32px 100% no-repeat local,
+      linear-gradient(to left, var(--color-surface) 40%, transparent) right / 32px 100% no-repeat local,
+      linear-gradient(to right, color-mix(in oklch, var(--color-foreground) 12%, transparent), transparent) left / 14px 100% no-repeat scroll,
+      linear-gradient(to left, color-mix(in oklch, var(--color-foreground) 12%, transparent), transparent) right / 14px 100% no-repeat scroll;
+    /* scroll-shadow */
+  }
 }
