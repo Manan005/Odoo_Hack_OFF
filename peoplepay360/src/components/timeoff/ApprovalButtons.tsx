@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { useConfirm } from "@/components/ui/confirm-dialog"
 import type { ActionResult } from "@/lib/result"
+import { cn } from "@/lib/utils"
 
 type Kind = "allocation" | "request"
 
@@ -108,16 +109,26 @@ export function ApprovalButtons({
     )
   }
 
+  // The `md` pair lives in a record header: on a phone it takes the full row
+  // and each button grows to a 40px, half-width target. The `sm` pair sits in
+  // list rows and keeps its compact inline shape everywhere.
+  const header = size === "md"
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5",
+        header && "flex w-full sm:inline-flex sm:w-auto",
+      )}
+    >
       {dialog}
-      {pop && <StatusBadge status={pop} className="pop-in" />}
+      {pop && <StatusBadge status={pop} className="pop-in shrink-0" />}
       <Button
         size={size}
         variant="success"
         disabled={pending || status === RequestStatus.APPROVED}
         title={status === RequestStatus.APPROVED ? "Already approved" : undefined}
         onClick={onApprove}
+        className={cn(header && "min-h-10 flex-1 sm:min-h-0 sm:flex-none")}
       >
         <Check className="h-3.5 w-3.5" aria-hidden />
         Approve
@@ -128,6 +139,7 @@ export function ApprovalButtons({
         disabled={pending || status === RequestStatus.REFUSED}
         title={status === RequestStatus.REFUSED ? "Already refused" : undefined}
         onClick={onRefuse}
+        className={cn(header && "min-h-10 flex-1 sm:min-h-0 sm:flex-none")}
       >
         <X className="h-3.5 w-3.5" aria-hidden />
         Refuse

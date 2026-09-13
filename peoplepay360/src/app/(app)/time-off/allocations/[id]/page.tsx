@@ -115,7 +115,7 @@ export default async function AllocationDetailPage({
             </h2>
             <ul className="stagger-rows divide-y divide-border/60 text-sm">
               {allocation.requests.map((r) => (
-                <li key={r.id} className="flex items-center justify-between py-2">
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
                   <span className="tabular">
                     {r.startDate.toISOString().slice(0, 10)}
                     <span className="text-subtle-foreground"> → </span>

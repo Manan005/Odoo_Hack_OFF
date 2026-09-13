@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { saveRequest } from "@/actions/timeoff.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Field, Input, ReadOnlyValue, Select, Textarea } from "@/components/ui/field"
 import { NumberTicker } from "@/components/ui/number-ticker"
@@ -195,11 +195,13 @@ export function RequestForm({
           <div
             key={`${v.employeeId}:${selected.id}`}
             className={cn(
-              "panel-in mt-5 flex items-center justify-between gap-4 rounded-xl p-4 ring-1 ring-inset",
+              // Phone: icon above the figure, everything full width; from `sm`
+              // up the icon sits on the right of one row.
+              "panel-in mt-5 flex flex-col gap-3 rounded-xl p-4 ring-1 ring-inset sm:flex-row sm:items-center sm:justify-between sm:gap-4",
               exhausted ? "bg-warning-subtle ring-warning/25" : "bg-info-subtle ring-info/20",
             )}
           >
-            <div className="min-w-0">
+            <div className="order-last min-w-0 sm:order-none">
               <p
                 className={cn(
                   "text-[11px] font-semibold uppercase tracking-[0.12em]",
@@ -271,7 +273,7 @@ export function RequestForm({
       </FormSection>
 
       {!readOnly && (
-        <div className="flex items-center gap-2">
+        <FormActions>
           <Button onClick={submit} loading={pending} loadingText="Saving…">
             {v.id ? "Save changes" : "Submit request"}
           </Button>
@@ -282,7 +284,7 @@ export function RequestForm({
           >
             Cancel
           </Button>
-        </div>
+        </FormActions>
       )}
     </div>
   )

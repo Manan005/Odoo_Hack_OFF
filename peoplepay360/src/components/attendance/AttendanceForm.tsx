@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { saveAttendance } from "@/actions/attendance.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Field, Input, ReadOnlyValue, Select, Textarea } from "@/components/ui/field"
 import {
@@ -175,14 +175,14 @@ export function AttendanceForm({
       </FormSection>
 
       {canEdit && (
-        <div className="flex items-center gap-2">
+        <FormActions>
           <Button onClick={submit} loading={pending} loadingText="Saving…">
             {v.id ? "Save Changes" : "Record Attendance"}
           </Button>
           <Button variant="ghost" onClick={() => router.push("/attendance")} disabled={pending}>
             Cancel
           </Button>
-        </div>
+        </FormActions>
       )}
     </div>
   )

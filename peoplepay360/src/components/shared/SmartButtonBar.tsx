@@ -17,13 +17,15 @@ export interface SmartButton {
  */
 export function SmartButtonBar({ buttons }: { buttons: SmartButton[] }) {
   return (
-    <div className="stagger flex flex-wrap gap-2">
+    // Phone: a two-up grid so every button gets a full 40px row with the count
+    // pinned to its right edge; from `sm` up the buttons flow at their own size.
+    <div className="stagger grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
       {buttons.map(({ label, count, href, icon: Icon }) => (
         <Link
           key={label}
           href={href}
           className={cn(
-            "group inline-flex items-center gap-2 rounded-xl border border-border/70 bg-surface px-3 py-2 text-sm",
+            "group flex min-h-10 min-w-0 items-center gap-2 rounded-xl border border-border/70 bg-surface px-3 py-2 text-sm sm:inline-flex sm:min-h-0",
             "transition-[translate,box-shadow,border-color,color] duration-200 ease-out-quart",
             "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-raise active:translate-y-0",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
@@ -31,11 +33,11 @@ export function SmartButtonBar({ buttons }: { buttons: SmartButton[] }) {
           )}
         >
           <Icon
-            className="h-4 w-4 text-muted-foreground transition-colors duration-150 group-hover:text-primary"
+            className="h-4 w-4 shrink-0 text-muted-foreground transition-colors duration-150 group-hover:text-primary"
             aria-hidden
           />
-          {label}
-          <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-xs font-semibold transition-colors duration-150 group-hover:bg-primary-subtle group-hover:text-primary">
+          <span className="min-w-0 truncate">{label}</span>
+          <span className="ml-auto shrink-0 rounded-md bg-surface-muted px-1.5 py-0.5 text-xs font-semibold transition-colors duration-150 group-hover:bg-primary-subtle group-hover:text-primary sm:ml-0">
             <NumberTicker value={String(count)} delayStep={60} />
           </span>
         </Link>

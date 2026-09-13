@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { createUser, updateUser } from "@/actions/user.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Checkbox, Field, Input, ReadOnlyValue, Select } from "@/components/ui/field"
 import { ROLE_LABEL } from "@/lib/auth-guard"
@@ -209,7 +209,7 @@ export function UserForm({
                 disabled={isSelf}
                 onClick={() => toggleRole(role)}
                 className={cn(
-                  "day-cell inline-flex h-9 items-center gap-1.5 rounded-lg pl-2.5 pr-3 text-sm font-medium ring-1 ring-inset",
+                  "day-cell inline-flex h-10 items-center gap-1.5 rounded-lg pl-2.5 pr-3 text-sm font-medium ring-1 ring-inset sm:h-9",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                   "disabled:cursor-not-allowed disabled:opacity-60",
                   on
@@ -244,14 +244,14 @@ export function UserForm({
         </ul>
       </FormSection>
 
-      <div className="flex items-center gap-2">
+      <FormActions>
         <Button onClick={submit} loading={pending} loadingText="Saving…">
           {editing ? "Save changes" : "Create user"}
         </Button>
         <Button variant="ghost" onClick={() => router.push("/users")} disabled={pending}>
           Cancel
         </Button>
-      </div>
+      </FormActions>
     </div>
   )
 }

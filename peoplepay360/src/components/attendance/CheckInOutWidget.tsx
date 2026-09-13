@@ -154,8 +154,11 @@ export function CheckInOutWidget({ today }: { today: TodayRecord | null }) {
           className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-success/10 blur-3xl"
         />
       )}
-      <div className="relative flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      {/* Phone: tile + text row on top, the two buttons as a full-width pair
+          under it with the caption left-aligned. From `sm` up: one row, the
+          buttons on the right. */}
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
           <span
             className={cn(
               "relative flex h-12 w-12 items-center justify-center rounded-xl ring-1 ring-inset transition-colors duration-300",
@@ -184,7 +187,7 @@ export function CheckInOutWidget({ today }: { today: TodayRecord | null }) {
             )}
           </span>
 
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Today
             </p>
@@ -228,8 +231,8 @@ export function CheckInOutWidget({ today }: { today: TodayRecord | null }) {
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5">
-          <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:items-end">
+          <div className="flex items-center gap-2 *:min-h-10 *:flex-1 sm:*:min-h-0 sm:*:flex-none">
             <Button
               variant={done ? "outline" : live ? "outline" : "primary"}
               disabled={pending || live}
@@ -257,7 +260,10 @@ export function CheckInOutWidget({ today }: { today: TodayRecord | null }) {
               Check out
             </Button>
           </div>
-          <p key={caption} className="max-w-md text-right text-[11px] text-muted-foreground animate-fade-in">
+          <p
+            key={caption}
+            className="animate-fade-in text-left text-[11px] text-muted-foreground sm:max-w-md sm:text-right"
+          >
             {caption}
           </p>
         </div>

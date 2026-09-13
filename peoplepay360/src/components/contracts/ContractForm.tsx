@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { createContract, updateContract } from "@/actions/contract.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Field, Input, Select, Textarea } from "@/components/ui/field"
@@ -107,12 +107,14 @@ function ContractTimeline({
         )}
       </div>
 
-      <div className="flex items-center justify-between text-xs">
-        <span className={cn("tabular font-medium", !start && "text-subtle-foreground")}>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className={cn("shrink-0 tabular font-medium", !start && "text-subtle-foreground")}>
           {start ? fmtDate(start) : "Start"}
         </span>
-        <span className={cn("text-muted-foreground", inverted && "text-danger")}>{span}</span>
-        <span className={cn("tabular font-medium", !end && "text-subtle-foreground")}>
+        <span className={cn("min-w-0 truncate text-center text-muted-foreground", inverted && "text-danger")}>
+          {span}
+        </span>
+        <span className={cn("shrink-0 tabular font-medium", !end && "text-subtle-foreground")}>
           {end ? fmtDate(end) : start ? "open-ended" : "End"}
         </span>
       </div>
@@ -261,7 +263,9 @@ export function ContractForm({
             error={errors.wage}
             hint="Payroll reads this as the contract wage."
           >
-            <div className="flex items-center gap-2">
+            {/* Phone: the input takes the row and the formatted echo sits
+                under it full-width; from `sm` up they share one line. */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 id="wage"
                 inputMode="decimal"
@@ -275,7 +279,7 @@ export function ContractForm({
                 key={preview ?? "none"}
                 aria-live="polite"
                 className={cn(
-                  "settle inline-flex h-9 shrink-0 items-center rounded-lg px-2.5 text-sm font-semibold tabular ring-1 ring-inset",
+                  "settle flex h-9 w-full shrink-0 items-center justify-end rounded-lg px-2.5 text-sm font-semibold tabular ring-1 ring-inset sm:inline-flex sm:w-auto sm:justify-start",
                   preview
                     ? "bg-primary-subtle text-primary ring-primary/15"
                     : "bg-surface-muted text-subtle-foreground ring-border/60",
@@ -365,14 +369,14 @@ export function ContractForm({
         </FieldGrid>
       </FormSection>
 
-      <div className="flex items-center gap-2">
+      <FormActions>
         <Button onClick={submit} loading={pending} loadingText="Saving…">
           {v.id ? "Save changes" : "Create contract"}
         </Button>
         <Button variant="ghost" onClick={() => router.push("/contracts")} disabled={pending}>
           Cancel
         </Button>
-      </div>
+      </FormActions>
     </div>
   )
 }

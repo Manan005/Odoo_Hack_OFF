@@ -107,7 +107,7 @@ export default async function ContractDetailPage({
           smartButtons={<SmartButtonBar buttons={smartButtons} />}
         />
         <Surface padded>
-          <dl className="stagger grid grid-cols-1 gap-5 text-sm md:grid-cols-3">
+          <dl className="stagger grid grid-cols-1 gap-5 text-sm sm:grid-cols-3">
             <div>
               <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Wage / Month

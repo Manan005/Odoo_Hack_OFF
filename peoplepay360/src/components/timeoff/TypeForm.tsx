@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { saveTimeOffType } from "@/actions/timeoff.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field"
 import {
@@ -175,7 +175,7 @@ export function TypeForm({ initial }: { initial: TypeFormValues }) {
         </div>
       </FormSection>
 
-      <div className="flex items-center gap-2">
+      <FormActions>
         <Button onClick={submit} loading={pending} loadingText="Saving…">
           {v.id ? "Save Changes" : "Create Type"}
         </Button>
@@ -186,7 +186,7 @@ export function TypeForm({ initial }: { initial: TypeFormValues }) {
         >
           Cancel
         </Button>
-      </div>
+      </FormActions>
     </div>
   )
 }

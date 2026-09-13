@@ -419,7 +419,19 @@ export function EmployeeForm({
       </div>
 
       {!readOnly && (
-        <div className="glass-bar sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 px-4 py-3 shadow-raise">
+        /*
+         * Phone: the bar bleeds to the viewport edges (the page gutter is px-4),
+         * sits flush on the bottom above the home indicator, and stacks its
+         * buttons full-width with Save nearest the thumb. From `sm` up it is
+         * the floating rounded card it always was.
+         */
+        <div
+          className={cn(
+            "glass-bar sticky z-20 flex flex-col gap-3 border border-border/70 shadow-raise",
+            "-mx-4 bottom-0 rounded-none border-x-0 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+            "sm:mx-0 sm:bottom-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:rounded-2xl sm:border-x sm:py-3",
+          )}
+        >
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             {saved ? (
               <span key="saved" className="pop-in inline-flex items-center gap-1.5 text-success">
@@ -437,8 +449,13 @@ export function EmployeeForm({
               </span>
             )}
           </p>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => router.back()} disabled={pending}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              disabled={pending}
+              className="min-h-10 w-full sm:min-h-0 sm:w-auto"
+            >
               Cancel
             </Button>
             <Button
@@ -446,7 +463,10 @@ export function EmployeeForm({
               loading={pending}
               loadingText="Saving…"
               variant={saved ? "success" : "primary"}
-              className={cn("min-w-36 transition-colors duration-300", saved && "pointer-events-none")}
+              className={cn(
+                "min-h-10 w-full transition-colors duration-300 sm:min-h-0 sm:w-auto sm:min-w-36",
+                saved && "pointer-events-none",
+              )}
             >
               {saved ? (
                 <>

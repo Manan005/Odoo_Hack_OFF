@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { saveSchedule } from "@/actions/schedule.actions"
-import { FieldGrid, FormSection } from "@/components/shared/FormHeader"
+import { FieldGrid, FormActions, FormSection } from "@/components/shared/FormHeader"
 import { Button } from "@/components/ui/button"
 import { Checkbox, Field, Input, ReadOnlyValue, Select } from "@/components/ui/field"
 import { NumberTicker } from "@/components/ui/number-ticker"
@@ -137,8 +137,8 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
       </FormSection>
 
       <FormSection>
-        <div className="mb-4 flex items-center justify-between border-b border-border/70 pb-3">
-          <div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/70 pb-3">
+          <div className="min-w-0">
             <h2 className="text-[15px] font-semibold tracking-tight">Weekly Schedule</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Tap a day to add or remove it, then set its hours below.
@@ -150,14 +150,21 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
             onClick={() => addDay()}
             disabled={freeDays.length === 0}
             title={freeDays.length === 0 ? "Every weekday is already scheduled" : undefined}
+            className="min-h-10 sm:min-h-0"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
             Add day
           </Button>
         </div>
 
-        {/* Day cells: press feedback and a toggled-state transition. */}
-        <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="Working days">
+        {/* Day cells: press feedback and a toggled-state transition. On a phone
+            the seven share one row as equal 40px-tall cells; wider, they keep
+            their natural pill width. */}
+        <div
+          className="mb-4 grid grid-cols-7 gap-1.5 sm:flex sm:flex-wrap"
+          role="group"
+          aria-label="Working days"
+        >
           {WEEKDAY_ORDER.map((d) => {
             const on = usedDays.has(d)
             return (
@@ -167,7 +174,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
                 aria-pressed={on}
                 onClick={() => (on ? removeDay(d) : addDay(d))}
                 className={cn(
-                  "day-cell inline-flex h-9 min-w-14 items-center justify-center rounded-lg px-3 text-xs font-semibold ring-1 ring-inset",
+                  "day-cell inline-flex h-10 min-w-0 items-center justify-center rounded-lg px-1 text-xs font-semibold ring-1 ring-inset sm:h-9 sm:min-w-14 sm:px-3",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                   on
                     ? "bg-primary text-primary-fg ring-primary shadow-primary"
@@ -186,8 +193,27 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
           </p>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        {/* Phone-only running total, so the figure is in view while the grid
+            below is scrolled sideways; the footer keeps the full version. */}
+        <p className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-surface-muted/60 px-3 py-2 text-xs sm:hidden">
+          <span className="font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Weekly total
+          </span>
+          <span className="flex items-baseline gap-2 tabular">
+            <span className="text-muted-foreground">
+              {totals.daysPerWeek} {totals.daysPerWeek === 1 ? "day" : "days"}
+            </span>
+            <NumberTicker value={weeklyHours} className="font-display text-base font-semibold" />
+          </span>
+        </p>
+
+        {/*
+         * `<input type="time">` has an intrinsic minimum, so on a phone the
+         * grid scrolls sideways inside this box while the Day column stays
+         * pinned (opaque, so rows slide under it).
+         */}
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[560px] border-collapse">
             <thead>
               <tr className="border-b border-border/70">
                 {["Day", "Start Time", "End Time", "Break", "Hours", ""].map((h, i) => (
@@ -196,6 +222,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
                     className={cn(
                       "px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
                       i >= 3 ? "text-right" : "text-left",
+                      i === 0 && "sticky-col sticky left-0 z-[1] bg-surface",
                     )}
                   >
                     {h}
@@ -218,10 +245,10 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
                     key={line.day}
                     className="border-b border-border/60 transition-colors duration-100 last:border-0 hover:bg-surface-hover/50"
                   >
-                    <td className="px-3 py-2">
+                    <td className="sticky-col sticky left-0 z-[1] bg-surface px-3 py-2">
                       <Select
                         value={line.day}
-                        className="h-8 text-xs"
+                        className="h-10 min-w-28 text-xs sm:h-8"
                         aria-label="Day"
                         onChange={(e) => setLine(i, { day: e.target.value as Weekday })}
                       >
@@ -238,7 +265,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
                       <Input
                         type="time"
                         value={line.startTime}
-                        className="h-8 text-xs"
+                        className="h-10 w-24 text-xs sm:h-8"
                         aria-label="Start time"
                         onChange={(e) => setLine(i, { startTime: e.target.value })}
                       />
@@ -247,7 +274,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
                       <Input
                         type="time"
                         value={line.endTime}
-                        className="h-8 text-xs"
+                        className="h-10 w-24 text-xs sm:h-8"
                         aria-label="End time"
                         error={line.endTime <= line.startTime}
                         onChange={(e) => setLine(i, { endTime: e.target.value })}
@@ -259,7 +286,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
                         min={0}
                         step={0.25}
                         value={line.breakHours}
-                        className="ml-auto h-8 w-20 text-right text-xs tabular"
+                        className="ml-auto h-10 w-20 text-right text-xs tabular sm:h-8"
                         aria-label="Break hours"
                         onChange={(e) => setLine(i, { breakHours: Number(e.target.value) })}
                       />
@@ -270,11 +297,13 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right">
+                      {/* A 40px square at every width — tablets are touch too.
+                          The negative margin keeps the row at the inputs' height. */}
                       <button
                         type="button"
                         aria-label={`Remove ${WEEKDAY_LABEL[line.day]}`}
                         onClick={() => removeDay(line.day)}
-                        className="rounded-md p-1 text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-danger-subtle hover:text-danger active:scale-90"
+                        className="-my-1 inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-danger-subtle hover:text-danger active:scale-90"
                       >
                         <X className="h-3.5 w-3.5" aria-hidden />
                       </button>
@@ -286,7 +315,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
           </table>
         </div>
 
-        <div className="-mx-5 -mb-5 mt-4 flex items-center justify-between rounded-b-2xl border-t border-border/70 bg-surface-muted/60 px-5 py-3">
+        <div className="-mx-5 -mb-5 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-b-2xl border-t border-border/70 bg-surface-muted/60 px-5 py-3">
           <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Total weekly hours
           </span>
@@ -302,7 +331,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
         </div>
       </FormSection>
 
-      <div className="flex items-center gap-2">
+      <FormActions>
         <Button onClick={submit} loading={pending} loadingText="Saving…">
           {v.id ? "Save changes" : "Create schedule"}
         </Button>
@@ -313,7 +342,7 @@ export function ScheduleForm({ initial }: { initial: ScheduleFormValues }) {
         >
           Cancel
         </Button>
-      </div>
+      </FormActions>
     </div>
   )
 }

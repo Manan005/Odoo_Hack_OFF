@@ -38,7 +38,7 @@ interface InfoTile {
  */
 function InfoTiles({ tiles }: { tiles: InfoTile[] }) {
   return (
-    <div className="stagger mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="stagger mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {tiles.map((t) => {
         const Icon = t.icon
         const inner = (
