@@ -216,6 +216,23 @@
   }
 
   /*
+   * Identity column of the overview tables. The table scrolls inside its
+   * card below its min-width, and this column stays pinned. It needs an
+   * opaque background to cover the cells sliding under it; on a hovered row
+   * that background is the row tint composited over the surface, so the
+   * pinned cell matches its siblings exactly.
+   */
+  .panel-id-col {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--color-surface);
+  }
+  tbody tr:hover > .panel-id-col {
+    background-color: color-mix(in oklch, var(--color-surface-hover) 60%, var(--color-surface));
+  }
+
+  /*
    * Stretched link: the whole card is the target while the markup keeps a
    * single anchor. Focus draws the ring on the card edge.
    */

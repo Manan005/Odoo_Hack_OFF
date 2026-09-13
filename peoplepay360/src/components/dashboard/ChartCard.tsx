@@ -42,7 +42,9 @@ export function ChartCard({
   return (
     <Surface padded className={cn("min-w-0", className)}>
       <CardHeader title={title} source={source} aside={aside} />
-      <div className={bodyClassName}>{children}</div>
+      {/* min-w-0 lets the grid cell shrink below the SVG's first-paint width;
+          overflow-hidden clips that frame instead of widening the page. */}
+      <div className={cn("min-w-0 overflow-hidden", bodyClassName)}>{children}</div>
     </Surface>
   )
 }

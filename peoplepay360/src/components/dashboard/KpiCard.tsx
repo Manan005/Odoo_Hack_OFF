@@ -98,10 +98,12 @@ export function KpiCard({
 
       {value !== undefined && (
         <div className="mt-3 flex flex-wrap items-end gap-x-2 gap-y-1">
+          {/* The ticker is an inline-flex row and cannot wrap, so the figure
+              steps down in the lg band, where a 2-of-12 card is ~110px inside. */}
           <NumberTicker
             value={value}
             className={cn(
-              "text-[30px] font-semibold leading-none tracking-[-0.02em]",
+              "text-[30px] font-semibold leading-none tracking-[-0.02em] lg:text-2xl xl:text-[30px]",
               valueClassName,
             )}
           />

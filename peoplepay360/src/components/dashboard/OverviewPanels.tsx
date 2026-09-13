@@ -32,6 +32,13 @@ const Stat = ({
 const miniHead =
   "py-1.5 text-[10px] font-semibold uppercase tracking-wider text-subtle-foreground"
 
+/**
+ * The overview tables scroll inside their card below ~420px of content width
+ * (a phone, or a half-column tablet card) with the identity column pinned.
+ */
+const scrollTable = "w-full min-w-[420px] border-collapse text-xs"
+const idCol = "panel-id-col"
+
 const delay = (ms: number) => ({ ["--delay" as string]: `${ms}ms` }) as CSSProperties
 
 export function AttendancePanel({
@@ -89,7 +96,7 @@ export function AttendancePanel({
               />
             ))}
           </div>
-          <p className="mt-1.5 text-[10px] text-subtle-foreground tabular">
+          <p className="mt-1.5 text-[11px] text-subtle-foreground tabular">
             {total} records · {segments.map((s) => `${s.count} ${s.label}`).join(" · ")}
           </p>
         </div>
@@ -147,52 +154,54 @@ export function TimeOffPanel({
         ) : null
       }
     >
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr className="border-b border-border/70">
-            <th className={cn(miniHead, "text-left")}>Type</th>
-            <th className={cn(miniHead, "text-right")}>Approved</th>
-            <th className={cn(miniHead, "text-right")}>Pending</th>
-            <th className={cn(miniHead, "text-right")}>Remaining</th>
-          </tr>
-        </thead>
-        <tbody className="stagger-rows">
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                No time off data.
-              </td>
+      <div className="overflow-x-auto">
+        <table className={scrollTable}>
+          <thead>
+            <tr className="border-b border-border/70">
+              <th className={cn(miniHead, idCol, "text-left")}>Type</th>
+              <th className={cn(miniHead, "text-right")}>Approved</th>
+              <th className={cn(miniHead, "text-right")}>Pending</th>
+              <th className={cn(miniHead, "text-right")}>Remaining</th>
             </tr>
-          )}
-          {rows.map((r) => (
-            <tr
-              key={r.type}
-              className="border-b border-border/60 transition-colors last:border-0 hover:bg-surface-hover/60"
-            >
-              <td className="py-2 font-medium">{r.type}</td>
-              <td className="py-2 text-right tabular">
-                {formatDuration(r.approvedDays, r.unit as "DAYS" | "HOURS")}
-              </td>
-              <td className="py-2 text-right tabular">
-                {r.pending > 0 ? (
-                  <span className="rounded-md bg-warning-subtle px-1.5 py-0.5 font-medium text-warning ring-1 ring-inset ring-warning/25">
-                    {r.pending}
-                  </span>
-                ) : (
-                  <span className="text-subtle-foreground">0</span>
-                )}
-              </td>
-              <td className="py-2 text-right tabular">
-                {r.remainingBalance === null ? (
-                  <span className="text-subtle-foreground">N/A</span>
-                ) : (
-                  formatDuration(r.remainingBalance, r.unit as "DAYS" | "HOURS")
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="stagger-rows">
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-6 text-center text-muted-foreground">
+                  No time off data.
+                </td>
+              </tr>
+            )}
+            {rows.map((r) => (
+              <tr
+                key={r.type}
+                className="border-b border-border/60 transition-colors last:border-0 hover:bg-surface-hover/60"
+              >
+                <td className={cn(idCol, "py-2 pr-3 font-medium")}>{r.type}</td>
+                <td className="py-2 text-right tabular">
+                  {formatDuration(r.approvedDays, r.unit as "DAYS" | "HOURS")}
+                </td>
+                <td className="py-2 text-right tabular">
+                  {r.pending > 0 ? (
+                    <span className="rounded-md bg-warning-subtle px-1.5 py-0.5 font-medium text-warning ring-1 ring-inset ring-warning/25">
+                      {r.pending}
+                    </span>
+                  ) : (
+                    <span className="text-subtle-foreground">0</span>
+                  )}
+                </td>
+                <td className="py-2 text-right tabular">
+                  {r.remainingBalance === null ? (
+                    <span className="text-subtle-foreground">N/A</span>
+                  ) : (
+                    formatDuration(r.remainingBalance, r.unit as "DAYS" | "HOURS")
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </PanelCard>
   )
 }
@@ -207,48 +216,50 @@ export function DepartmentPanel({
   const max = rows.reduce((m, r) => Math.max(m, r.monthlySalary), 0)
   return (
     <PanelCard title="Department Overview" source="Employee + Contract" className={className}>
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr className="border-b border-border/70">
-            <th className={cn(miniHead, "text-left")}>Department</th>
-            <th className={cn(miniHead, "text-right")}>Headcount</th>
-            <th className={cn(miniHead, "w-2/5 text-right")}>Monthly Salary</th>
-          </tr>
-        </thead>
-        <tbody className="stagger-rows">
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={3} className="py-6 text-center text-muted-foreground">
-                No departments match.
-              </td>
+      <div className="overflow-x-auto">
+        <table className={scrollTable}>
+          <thead>
+            <tr className="border-b border-border/70">
+              <th className={cn(miniHead, idCol, "text-left")}>Department</th>
+              <th className={cn(miniHead, "text-right")}>Headcount</th>
+              <th className={cn(miniHead, "w-2/5 text-right")}>Monthly Salary</th>
             </tr>
-          )}
-          {rows.map((r, i) => (
-            <tr
-              key={r.department}
-              className="border-b border-border/60 transition-colors last:border-0 hover:bg-surface-hover/60"
-            >
-              <td className="py-2 font-medium">{r.department}</td>
-              <td className="py-2 text-right tabular">{r.headcount}</td>
-              <td className="py-2 text-right">
-                <div className="flex items-center justify-end gap-2">
-                  {/* Proportional bar — the real number is beside it. */}
-                  <span className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-surface-muted">
-                    <span
-                      className="grow-rail block h-full rounded-full bg-chart-1"
-                      style={{
-                        width: max > 0 ? `${(r.monthlySalary / max) * 100}%` : 0,
-                        ...delay(i * 70),
-                      }}
-                    />
-                  </span>
-                  <span className="tabular font-medium">{formatLakh(r.monthlySalary)}</span>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="stagger-rows">
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={3} className="py-6 text-center text-muted-foreground">
+                  No departments match.
+                </td>
+              </tr>
+            )}
+            {rows.map((r, i) => (
+              <tr
+                key={r.department}
+                className="border-b border-border/60 transition-colors last:border-0 hover:bg-surface-hover/60"
+              >
+                <td className={cn(idCol, "py-2 pr-3 font-medium")}>{r.department}</td>
+                <td className="py-2 text-right tabular">{r.headcount}</td>
+                <td className="py-2 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    {/* Proportional bar — the real number is beside it. */}
+                    <span className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-surface-muted">
+                      <span
+                        className="grow-rail block h-full rounded-full bg-chart-1"
+                        style={{
+                          width: max > 0 ? `${(r.monthlySalary / max) * 100}%` : 0,
+                          ...delay(i * 70),
+                        }}
+                      />
+                    </span>
+                    <span className="tabular font-medium">{formatLakh(r.monthlySalary)}</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </PanelCard>
   )
 }
@@ -347,12 +358,13 @@ export function AlertsPanel({
               <li
                 key={i}
                 className={cn(
-                  "flex items-start gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset",
+                  // The link drops under the message when fewer than 10rem remain beside it.
+                  "flex flex-wrap items-start gap-x-2 gap-y-1 rounded-lg px-3 py-2 text-xs ring-1 ring-inset",
                   tone,
                 )}
               >
                 <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span className="flex-1 text-foreground/90">{a.message}</span>
+                <span className="min-w-[10rem] flex-1 text-foreground/90">{a.message}</span>
                 {a.payslipId && (
                   <Link
                     href={`/payroll/payslips/${a.payslipId}`}

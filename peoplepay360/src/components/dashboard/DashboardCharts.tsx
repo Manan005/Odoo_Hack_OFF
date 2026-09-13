@@ -1,5 +1,6 @@
 "use client"
 
+import { useSyncExternalStore } from "react"
 import {
   Area,
   AreaChart,
@@ -17,8 +18,12 @@ import { formatINR, formatLakh } from "@/lib/money"
 
 const AXIS = { fontSize: 11, fill: "var(--color-muted-foreground)" }
 const GRID = "var(--color-chart-grid)"
-/** Removes the zero-width first frame before ResponsiveContainer measures. */
-const INITIAL = { width: 600, height: 288 }
+/**
+ * Removes the zero-width first frame before ResponsiveContainer measures.
+ * Sized for the narrowest card (a phone), so the frame never exceeds its
+ * container; ChartCard clips it while the real measurement lands.
+ */
+const INITIAL = { width: 320, height: 240 }
 
 /** Recharts animates in JS, so the CSS kill switch needs a hand here. */
 function useAnim() {
@@ -27,6 +32,34 @@ function useAnim() {
     isAnimationActive: !reduced,
     animationDuration: 900,
     animationEasing: "ease-out" as const,
+  }
+}
+
+/** Below md (768). Subscription pattern — no state is set inside an effect. */
+const COMPACT_QUERY = "(max-width: 767.98px)"
+const subscribeCompact = (onChange: () => void) => {
+  const mq = window.matchMedia(COMPACT_QUERY)
+  mq.addEventListener("change", onChange)
+  return () => mq.removeEventListener("change", onChange)
+}
+const getCompact = () => window.matchMedia(COMPACT_QUERY).matches
+const getCompactServer = () => false
+
+/** `₹ 1.2L` → `1.2L`; the currency is in the tooltip, the axis needs the room. */
+const shortLakh = (v: number) => formatLakh(v).replace("₹ ", "")
+
+/**
+ * Axis props for the current viewport. A phone chart is ~250px wide, so the
+ * Y column narrows and drops the sign, the plot margin closes up, and the X
+ * axis keeps only the ticks that fit (always the first and last).
+ */
+function useAxes() {
+  const compact = useSyncExternalStore(subscribeCompact, getCompact, getCompactServer)
+  return {
+    compact,
+    yWidth: compact ? 44 : 64,
+    yTick: compact ? shortLakh : formatLakh,
+    margin: { top: 8, right: 8, bottom: 4, left: compact ? 0 : 8 },
   }
 }
 
@@ -71,6 +104,7 @@ export function SalaryByDepartmentChart({
   data: Array<{ department: string; net: number; headcount: number }>
 }) {
   const anim = useAnim()
+  const axes = useAxes()
   if (data.length === 0) return <EmptyChart>No departments match the selected filters.</EmptyChart>
   if (data.every((d) => d.net === 0)) {
     return (
@@ -83,7 +117,7 @@ export function SalaryByDepartmentChart({
 
   return (
     <ResponsiveContainer width="100%" height="100%" initialDimension={INITIAL}>
-      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }} barCategoryGap="30%">
+      <BarChart data={data} margin={axes.margin} barCategoryGap="30%">
         <defs>
           <linearGradient id="dept-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={1} />
@@ -91,13 +125,25 @@ export function SalaryByDepartmentChart({
           </linearGradient>
         </defs>
         <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="department" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
+        {/*
+         * Never `interval={0}`: six department names in a 4-of-12 card at 1024
+         * overlap. preserveStartEnd shows every label that fits and drops only
+         * a colliding one — the tooltip still names each bar.
+         */}
+        <XAxis
+          dataKey="department"
+          tick={AXIS}
+          axisLine={false}
+          tickLine={false}
+          interval="preserveStartEnd"
+          minTickGap={4}
+        />
         <YAxis
           tick={AXIS}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => formatLakh(v)}
-          width={64}
+          tickFormatter={(v) => axes.yTick(v)}
+          width={axes.yWidth}
         />
         <Tooltip
           cursor={{ fill: "var(--color-surface-hover)", radius: 8 }}
@@ -127,11 +173,12 @@ export function MonthlyTrendChart({
   data: Array<{ label: string; net: number }>
 }) {
   const anim = useAnim()
+  const axes = useAxes()
   if (data.length === 0) return <EmptyChart>No payslip history for the selected filters.</EmptyChart>
 
   return (
     <ResponsiveContainer width="100%" height="100%" initialDimension={INITIAL}>
-      <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+      <AreaChart data={data} margin={axes.margin}>
         <defs>
           <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.32} />
@@ -139,13 +186,19 @@ export function MonthlyTrendChart({
           </linearGradient>
         </defs>
         <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
+        <XAxis
+          dataKey="label"
+          tick={AXIS}
+          axisLine={false}
+          tickLine={false}
+          interval={axes.compact ? "preserveStartEnd" : "preserveEnd"}
+        />
         <YAxis
           tick={AXIS}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => formatLakh(v)}
-          width={64}
+          tickFormatter={(v) => axes.yTick(v)}
+          width={axes.yWidth}
           domain={["auto", "auto"]}
         />
         <Tooltip

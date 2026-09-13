@@ -167,19 +167,24 @@ export default async function PayrollDashboardPage({
       />
 
       {/*
-       * Bento — one 12-column grid at xl (the 1280px floor), 2 columns at sm.
-       *   Row A   hero net 5 (rows 1–2) · payslips 4 · attendance gauge 3 (rows 1–2)
-       *   Row B   avg net 2 · approved time off 2   (fills the 4 under payslips)
-       *   Row C   net composition 12
-       *   Row D   monthly trend 8 · salary by department 4
-       *   Row E   attendance overview 7 · payroll alerts 5
-       *   Row F   department overview 7 · time off overview 5
+       * Bento — one 12-column grid from lg (1024), 2 columns from sm (640),
+       * a single column below that. Spans per breakpoint:
+       *   lg+  Row A   hero net 5 (rows 1–2) · payslips 4 · attendance gauge 3 (rows 1–2)
+       *        Row B   avg net 2 · approved time off 2   (fills the 4 under payslips)
+       *        Row C   net composition 12
+       *        Row D   monthly trend 8 · salary by department 4
+       *        Row E   attendance overview 7 · payroll alerts 5
+       *        Row F   department overview 7 · time off overview 5
+       *   sm   hero, composition and both charts take the full 2 so their axes
+       *        keep room; every other card is one column, so the KPI pairs and
+       *        the panel pairs sit side by side.
+       *   <sm  one column in source order.
        * One .stagger parent so the cascade reads left-to-right, top-to-bottom;
        * rows D–F carry .reveal and animate on scroll where view() is supported.
        */}
-      <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-12">
+      <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
         <HeroNetCard
-          className="sm:col-span-2 xl:col-span-5 xl:row-span-2"
+          className="sm:col-span-2 lg:col-span-5 lg:row-span-2"
           periodLabel={periodLabel}
           prevLabel={prevLabel}
           totalNet={kpis.totalNet}
@@ -192,7 +197,7 @@ export default async function PayrollDashboardPage({
         />
 
         <KpiCard
-          className="xl:col-span-4"
+          className="lg:col-span-4"
           label="Payslips"
           value={String(kpis.payslipsGenerated)}
           href={payslipsHref}
@@ -203,7 +208,7 @@ export default async function PayrollDashboardPage({
         </KpiCard>
 
         <KpiCard
-          className="xl:col-span-3 xl:row-span-2"
+          className="lg:col-span-3 lg:row-span-2"
           label="Attendance health"
           href="/attendance"
           hrefLabel="open attendance"
@@ -222,7 +227,7 @@ export default async function PayrollDashboardPage({
         </KpiCard>
 
         <KpiCard
-          className="xl:col-span-2"
+          className="lg:col-span-2"
           label="Avg net / payslip"
           value={formatINR(kpis.avgSalary, 0)}
           caption="Net ÷ payslips in the period"
@@ -230,7 +235,7 @@ export default async function PayrollDashboardPage({
         />
 
         <KpiCard
-          className="xl:col-span-2"
+          className="lg:col-span-2"
           label="Approved time off"
           value={formatDuration(kpis.approvedTimeOffDays)}
           href="/time-off/requests?status=APPROVED"
@@ -240,14 +245,14 @@ export default async function PayrollDashboardPage({
         />
 
         <NetCompositionBand
-          className="sm:col-span-2 xl:col-span-12"
+          className="sm:col-span-2 lg:col-span-12"
           data={composition}
           periodLabel={periodLabel}
         />
 
         <ChartCard
-          className="reveal sm:col-span-2 xl:col-span-8"
-          bodyClassName="h-72"
+          className="reveal sm:col-span-2 lg:col-span-8"
+          bodyClassName="h-64 sm:h-72"
           title="Monthly Net Salary Trend"
           source="Payslips bucketed by period"
         >
@@ -255,23 +260,23 @@ export default async function PayrollDashboardPage({
         </ChartCard>
 
         <ChartCard
-          className="reveal xl:col-span-4"
-          bodyClassName="h-72"
+          className="reveal sm:col-span-2 lg:col-span-4"
+          bodyClassName="h-64 sm:h-72"
           title="Salary Cost by Department"
           source="Payslips + Employee Department"
         >
           <SalaryByDepartmentChart data={salaryByDept} />
         </ChartCard>
 
-        <AttendancePanel className="reveal xl:col-span-7" data={attendance} />
+        <AttendancePanel className="reveal lg:col-span-7" data={attendance} />
         <AlertsPanel
-          className="reveal xl:col-span-5"
+          className="reveal lg:col-span-5"
           alerts={statusSplit.alerts}
           counts={warningCounts}
           payrunHref={payrunHref}
         />
-        <DepartmentPanel className="reveal xl:col-span-7" rows={deptOverview} />
-        <TimeOffPanel className="reveal xl:col-span-5" rows={timeOff} />
+        <DepartmentPanel className="reveal lg:col-span-7" rows={deptOverview} />
+        <TimeOffPanel className="reveal lg:col-span-5" rows={timeOff} />
       </div>
 
       <ProofStrip counts={counts} periodLabel={periodLabel} payslipsHref={payslipsHref} />

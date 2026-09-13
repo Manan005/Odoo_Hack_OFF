@@ -55,9 +55,10 @@ export function NetCompositionBand({
       ) : (
         <>
           <div className="relative mt-5 h-5">
+            {/* Clamped so a net near 100% of gross cannot push the label past the card edge. */}
             <span
               className="rise-in absolute -translate-x-1/2 whitespace-nowrap text-[11px] font-medium tabular"
-              style={{ left: `${netPct}%`, ...delay(560) }}
+              style={{ left: `clamp(2.75rem, ${netPct}%, calc(100% - 2.75rem))`, ...delay(560) }}
             >
               Net {formatLakh(net)}
             </span>

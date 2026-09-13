@@ -39,7 +39,7 @@ export function ProofStrip({
         </p>
       </div>
 
-      <ul className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 [--stagger-offset:4]">
+      <ul className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 [--stagger-offset:4]">
         {tiles.map((t) => {
           const Icon = t.icon
           return (
@@ -62,7 +62,7 @@ export function ProofStrip({
                 delayStep={25}
                 className="mt-1.5 text-xl font-semibold leading-none tracking-tight"
               />
-              <p className="mt-1 truncate text-[10px] text-subtle-foreground">{t.note}</p>
+              <p className="mt-1 truncate text-[11px] text-subtle-foreground">{t.note}</p>
             </Spotlight>
           )
         })}

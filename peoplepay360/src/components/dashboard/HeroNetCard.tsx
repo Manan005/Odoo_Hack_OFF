@@ -75,13 +75,16 @@ export function HeroNetCard({
         </header>
 
         <div className="mt-4 flex items-baseline gap-1.5">
-          <span className="text-[26px] font-medium leading-none text-ink-fg/70" aria-hidden>
+          <span
+            className="text-[22px] font-medium leading-none text-ink-fg/70 sm:text-[26px]"
+            aria-hidden
+          >
             {negative ? "−" : ""}₹
           </span>
           <NumberTicker
             value={figure}
             delayStep={55}
-            className="font-display text-[52px] font-semibold leading-none tracking-[-0.01em]"
+            className="font-display text-[40px] font-semibold leading-none tracking-[-0.01em] sm:text-[52px]"
           />
           <span className="sr-only">{formatINR(totalNet)}</span>
         </div>
@@ -128,6 +131,7 @@ export function HeroNetCard({
                 </Link>
                 <StatusBadge status={payrun.status} />
               </div>
+              {/* Below sm the stepper itself keeps only the current step's label. */}
               <div className="ink-scope mt-4">
                 <PayrunStepper status={payrun.status} allSent={payrun.allSent} />
               </div>
@@ -137,7 +141,7 @@ export function HeroNetCard({
               <p className="text-sm text-ink-fg/70">No payrun for this period.</p>
               <Link
                 href="/payroll/payruns"
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-fg transition-[opacity,scale] duration-150 ease-out-quart hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-medium text-primary-fg transition-[opacity,scale] duration-150 ease-out-quart hover:opacity-90 active:scale-[0.98] sm:h-8 sm:px-3"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden />
                 Create payrun
