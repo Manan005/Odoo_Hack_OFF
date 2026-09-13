@@ -1,8 +1,12 @@
 import { redirect } from "next/navigation"
-import { requireAuth } from "@/lib/auth-guard"
+import { pageUser } from "@/lib/auth-guard"
 import { landingFor } from "@/lib/nav"
 
 export default async function HomePage() {
-  const user = await requireAuth()
+  const user = await pageUser()
+  if (!user) {
+    redirect("/login")
+  }
   redirect(landingFor(user))
 }
+
