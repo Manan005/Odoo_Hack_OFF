@@ -284,6 +284,17 @@
     outline-offset: 2px;
   }
 
+  /* Remove default browser tap highlight and focus ring box on interactive SVG chart elements */
+  .recharts-wrapper,
+  .recharts-surface,
+  .recharts-wrapper *:focus,
+  .recharts-wrapper *:focus-visible,
+  .recharts-wrapper *:active {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   /* Every numeric surface reads as tabular — see design.md §3 */
   .tabular {
     font-variant-numeric: tabular-nums;
