@@ -14,7 +14,6 @@ import {
 } from "@/components/layout/CommandPalette"
 import { commandsFor } from "@/components/layout/commands"
 import { Logo } from "@/components/layout/Logo"
-import { AccentSwatches } from "@/components/theme/AccentSwatches"
 import { AppearanceSegment, ThemeToggle } from "@/components/theme/ThemeToggle"
 import type { NavItem } from "@/lib/nav"
 import { cn } from "@/lib/utils"
@@ -299,12 +298,6 @@ function UserMenu({ name, roleLabel }: { name: string; roleLabel: string }) {
               Appearance
             </p>
             <AppearanceSegment />
-            <div className="mt-2 flex items-center justify-between px-1">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-subtle-foreground">
-                Accent
-              </span>
-              <AccentSwatches />
-            </div>
           </div>
 
           <div className="my-1 border-t border-border/70" />

@@ -32,8 +32,8 @@
 
 @theme {
   /* ── Brand ─────────────────────────────────────── */
-  --color-primary: light-dark(oklch(0.5 0.2 var(--accent-h)), oklch(0.74 0.15 var(--accent-h)));
-  --color-primary-hover: light-dark(oklch(0.45 0.2 var(--accent-h)), oklch(0.79 0.14 var(--accent-h)));
+  --color-primary: light-dark(oklch(var(--accent-l, 0.5) 0.2 var(--accent-h)), oklch(0.74 0.15 var(--accent-h)));
+  --color-primary-hover: light-dark(oklch(calc(var(--accent-l, 0.5) - 0.05) 0.2 var(--accent-h)), oklch(0.79 0.14 var(--accent-h)));
   --color-primary-fg: light-dark(oklch(0.99 0 0), oklch(0.15 0.03 var(--accent-h)));
   --color-primary-subtle: light-dark(oklch(0.94 0.035 var(--accent-h)), oklch(0.3 0.06 var(--accent-h)));
   --color-primary-border: light-dark(oklch(0.85 0.08 var(--accent-h)), oklch(0.42 0.1 var(--accent-h)));
@@ -63,8 +63,8 @@
   --color-warning-subtle: light-dark(oklch(0.96 0.05 75), oklch(0.8 0.15 75 / 0.16));
   --color-danger: light-dark(oklch(0.58 0.2 25), oklch(0.72 0.18 25));
   --color-danger-subtle: light-dark(oklch(0.95 0.04 25), oklch(0.72 0.18 25 / 0.16));
-  --color-info: light-dark(oklch(0.6 0.13 235), oklch(0.76 0.12 235));
-  --color-info-subtle: light-dark(oklch(0.95 0.04 235), oklch(0.76 0.12 235 / 0.16));
+  --color-info: light-dark(oklch(0.6 0.13 var(--info-h, 235)), oklch(0.76 0.12 var(--info-h, 235)));
+  --color-info-subtle: light-dark(oklch(0.95 0.04 var(--info-h, 235)), oklch(0.76 0.12 var(--info-h, 235) / 0.16));
   --color-neutral: light-dark(oklch(0.55 0.01 260), oklch(0.72 0.01 260));
   --color-neutral-subtle: light-dark(oklch(0.95 0.003 260), oklch(0.72 0.01 260 / 0.14));
 

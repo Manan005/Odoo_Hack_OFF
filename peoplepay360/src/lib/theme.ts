@@ -14,22 +14,26 @@ export const isTheme = (v: unknown): v is Theme => v === "light" || v === "dark"
 
 /**
  * Accent hues. Every primary token is an oklch colour whose hue is
- * `--accent-h`, so switching the accent is one attribute on <html> and every
- * button, ring, chart-1 series and glow follows. Lightness and chroma are
- * fixed per mode so contrast against white text holds for every hue.
+ * `--accent-h`, driven by the `data-accent` attribute the root layout renders.
+ * The product ships ONE accent (DEFAULT_ACCENT); the list documents the hues
+ * the token system was tuned against and keeps the door open, but no picker
+ * exposes them and no cookie is read.
  */
 export type Accent = "indigo" | "ocean" | "teal" | "emerald" | "rose" | "ember"
 
 export const ACCENTS: ReadonlyArray<{ id: Accent; label: string; hue: number }> = [
-  { id: "indigo", label: "Indigo", hue: 270 },
   { id: "ocean", label: "Ocean", hue: 235 },
+  { id: "indigo", label: "Indigo", hue: 270 },
   { id: "teal", label: "Teal", hue: 195 },
   { id: "emerald", label: "Emerald", hue: 155 },
   { id: "rose", label: "Rose", hue: 355 },
   { id: "ember", label: "Ember", hue: 40 },
 ]
 
-export const DEFAULT_ACCENT: Accent = "indigo"
-export const ACCENT_COOKIE = "pp360-accent"
-
-export const isAccent = (v: unknown): v is Accent => ACCENTS.some((a) => a.id === v)
+/**
+ * Ocean: the hue credible payroll and finance products ship (the rendered
+ * button sits with Workday, PayPal and SAP), where indigo sits with the
+ * template and dev-tool cluster a reviewer reads as "default dashboard".
+ * Chosen from a four-lens panel over real screenshots; see docs/ui-wow.md §2.2.
+ */
+export const DEFAULT_ACCENT: Accent = "ocean"

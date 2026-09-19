@@ -9,11 +9,25 @@
 
 @layer base {
   /* ── 1. Accent hue ─────────────────────────────────────────────────── */
+  /*
+   * Ocean is the default (theme.ts DEFAULT_ACCENT); the fallback here only
+   * matters before <html data-accent> is rendered. Two per-accent knobs
+   * exist beside the hue: `--accent-l` (light-mode primary lightness,
+   * default 0.5) and `--info-h` (the info tone's hue, default 235). Ocean
+   * sets both: at L 0.5 its clipped light primary misses 4.5:1 on the
+   * subtle background by a hair, and its hue is the info hue, so Computed
+   * and Validated badges would match. No other accent needs them.
+   */
   :root {
+    --accent-h: 235;
+  }
+  :root[data-accent="indigo"] {
     --accent-h: 270;
   }
   :root[data-accent="ocean"] {
     --accent-h: 235;
+    --accent-l: 0.48;
+    --info-h: 205;
   }
   :root[data-accent="teal"] {
     --accent-h: 195;
@@ -105,12 +119,6 @@
     .tilt:hover {
       transition-duration: 0.08s;
     }
-  }
-
-  /* Accent swatch: painted with the primary recipe at the swatch's hue. */
-  .swatch {
-    background: light-dark(oklch(0.5 0.2 var(--swatch-h)), oklch(0.74 0.15 var(--swatch-h)));
-    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.25);
   }
 
   /* ── 4. Reveal ─────────────────────────────────────────────────────── */
