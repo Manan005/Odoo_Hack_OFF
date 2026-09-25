@@ -2,10 +2,17 @@
 
 import { AuthError as NextAuthError } from "next-auth"
 import { signIn, signOut } from "@/auth"
+import { db } from "@/lib/db"
+import { landingForRoles } from "@/lib/nav"
 import { fail, ok, type ActionResult } from "@/lib/result"
 import { loginSchema } from "@/lib/validation/auth"
 
-export async function loginAction(raw: unknown): Promise<ActionResult<void>> {
+/**
+ * Unauthenticated by design: this is the action that creates the session.
+ * On success it returns the role's landing page, so the form can navigate
+ * there in one hop instead of bouncing through "/" and a redirect.
+ */
+export async function loginAction(raw: unknown): Promise<ActionResult<{ landing: string }>> {
   const parsed = loginSchema.safeParse(raw)
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {}
@@ -17,8 +24,17 @@ export async function loginAction(raw: unknown): Promise<ActionResult<void>> {
   }
 
   try {
-    await signIn("credentials", { ...parsed.data, redirect: false })
-    return ok(undefined)
+    // The roles lookup runs beside the credential check rather than after it,
+    // so it costs no extra round trip. Its result is used only once signIn has
+    // succeeded; on failure it is discarded and nothing about the account leaks.
+    const [, account] = await Promise.all([
+      signIn("credentials", { ...parsed.data, redirect: false }),
+      db.user.findUnique({
+        where: { email: parsed.data.email.toLowerCase() },
+        select: { roles: true },
+      }),
+    ])
+    return ok({ landing: landingForRoles(account?.roles ?? []) })
   } catch (error) {
     // Auth.js surfaces every credential failure as CredentialsSignin. Do not
     // distinguish "no such user" from "wrong password" — that leaks account

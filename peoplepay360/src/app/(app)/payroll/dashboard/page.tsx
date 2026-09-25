@@ -1,39 +1,21 @@
 import { EmployeeType, Role } from "@prisma/client"
-import { AttendanceGauge } from "@/components/dashboard/AttendanceGauge"
-import { ChartCard } from "@/components/dashboard/ChartCard"
-import { MonthlyTrendChart, SalaryByDepartmentChart } from "@/components/dashboard/DashboardCharts"
-import { DashboardFilterBar } from "@/components/dashboard/DashboardFilters"
-import { HeroNetCard } from "@/components/dashboard/HeroNetCard"
-import { KpiCard } from "@/components/dashboard/KpiCard"
-import { NetCompositionBand } from "@/components/dashboard/NetCompositionBand"
+import { Suspense } from "react"
 import {
-  AlertsPanel,
-  AttendancePanel,
-  DepartmentPanel,
-  TimeOffPanel,
-} from "@/components/dashboard/OverviewPanels"
-import { PayslipStatusBar } from "@/components/dashboard/PayslipStatusBar"
-import { ProofStrip } from "@/components/dashboard/ProofStrip"
+  ChartsSection,
+  ChartsSkeleton,
+  HeadlineSection,
+  HeadlineSkeleton,
+  PanelsSection,
+  PanelsSkeleton,
+  ProofSection,
+  ProofSkeleton,
+} from "@/components/dashboard/DashboardSections"
+import { DashboardFilterBar } from "@/components/dashboard/DashboardFilters"
 import { Forbidden } from "@/components/shared/Forbidden"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { pageAllows } from "@/lib/auth-guard"
-import {
-  getAttendanceOverview,
-  getDepartmentOverview,
-  getKpis,
-  getLatestPayslipPeriod,
-  getModelCounts,
-  getMonthlyTrend,
-  getNetComposition,
-  getPayslipStatusSplit,
-  getPeriodPayrun,
-  getSalaryByDepartment,
-  getTimeOffOverview,
-  getWarningSeverityCounts,
-  type DashboardFilters,
-} from "@/lib/dashboard/aggregate"
+import { getLatestPayslipPeriod, type DashboardFilters } from "@/lib/dashboard/aggregate"
 import { db } from "@/lib/db"
-import { formatDuration, formatINR } from "@/lib/money"
 
 export const metadata = { title: "Payroll Dashboard — PeoplePay360" }
 
@@ -81,11 +63,21 @@ export default async function PayrollDashboardPage({
   const user = await pageAllows(Role.HR_PAYROLL_USER)
   if (!user) return <Forbidden message="The payroll dashboard is restricted to payroll roles." />
 
-  const params = await searchParams
+  // The only data awaited before the first flush: what the header and the
+  // filter rail need. One wave of three small queries.
+  const [params, company, departments, latest] = await Promise.all([
+    searchParams,
+    db.company.findUnique({ where: { id: user.companyId }, select: { name: true } }),
+    db.department.findMany({
+      where: { companyId: user.companyId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    // First paint is never a month of zeros: default to the newest month that
+    // actually has payslips, keeping ?period= as the override.
+    getLatestPayslipPeriod(user.companyId),
+  ])
 
-  // First paint is never a month of zeros: default to the newest month that
-  // actually has payslips, keeping ?period= as the override.
-  const latest = await getLatestPayslipPeriod(user.companyId)
   const currentKey = monthKey(new Date())
   const top = latest && latest > currentKey ? monthStart(latest) : monthStart(currentKey)
   const periods = periodOptions(top, latest)
@@ -109,43 +101,10 @@ export default async function PayrollDashboardPage({
         : undefined,
   }
 
-  // Thirteen aggregates in parallel — every figure below is a live query.
-  const [
-    company,
-    departments,
-    kpis,
-    salaryByDept,
-    trend,
-    statusSplit,
-    attendance,
-    timeOff,
-    deptOverview,
-    payrun,
-    composition,
-    counts,
-    warningCounts,
-  ] = await Promise.all([
-    db.company.findUnique({ where: { id: user.companyId }, select: { name: true } }),
-    db.department.findMany({
-      where: { companyId: user.companyId },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    getKpis(filters),
-    getSalaryByDepartment(filters),
-    getMonthlyTrend(filters),
-    getPayslipStatusSplit(filters),
-    getAttendanceOverview(filters),
-    getTimeOffOverview(filters),
-    getDepartmentOverview(filters),
-    getPeriodPayrun(filters),
-    getNetComposition(filters),
-    getModelCounts(filters),
-    getWarningSeverityCounts(filters),
-  ])
-
-  const payslipsHref = payrun ? `/payroll/payslips?payrunId=${payrun.id}` : "/payroll/payslips"
-  const payrunHref = payrun ? `/payroll/payruns/${payrun.id}` : null
+  // Keyed on the scope so a filter change swaps every section back to its
+  // skeleton at once, instead of holding stale figures with no feedback.
+  const scopeKey = `${period}|${filters.departmentId ?? ""}|${filters.employeeType ?? ""}`
+  const section = { filters, periodLabel, prevLabel }
 
   return (
     <>
@@ -183,103 +142,20 @@ export default async function PayrollDashboardPage({
        * rows D–F carry .reveal and animate on scroll where view() is supported.
        */}
       <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
-        <HeroNetCard
-          className="sm:col-span-2 lg:col-span-5 lg:row-span-2"
-          periodLabel={periodLabel}
-          prevLabel={prevLabel}
-          totalNet={kpis.totalNet}
-          prevNet={kpis.prevNet}
-          deltaPct={kpis.netDeltaPct}
-          payslips={kpis.payslipsGenerated}
-          trend={trend}
-          payrun={payrun}
-          payslipsHref={payslipsHref}
-        />
-
-        <KpiCard
-          className="lg:col-span-4"
-          label="Payslips"
-          value={String(kpis.payslipsGenerated)}
-          href={payslipsHref}
-          hrefLabel="open the payslip list"
-          source="Payslip status"
-        >
-          <PayslipStatusBar split={statusSplit.split} />
-        </KpiCard>
-
-        <KpiCard
-          className="lg:col-span-3 lg:row-span-2"
-          label="Attendance health"
-          href="/attendance"
-          hrefLabel="open attendance"
-          caption={`${kpis.presentish} of ${kpis.expectedRecords} records are not absences`}
-          source="Attendance · coverage from working schedules"
-        >
-          <AttendanceGauge
-            pct={kpis.attendanceHealthPct}
-            coveragePct={attendance.coveragePct}
-            className="mt-3"
-          />
-          <p className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground tabular">
-            <span className="h-1.5 w-1.5 rounded-full bg-chart-2" aria-hidden />
-            coverage {attendance.coveragePct.toFixed(1)}%
-          </p>
-        </KpiCard>
-
-        <KpiCard
-          className="lg:col-span-2"
-          label="Avg net / payslip"
-          value={formatINR(kpis.avgSalary, 0)}
-          caption="Net ÷ payslips in the period"
-          source="Payslips"
-        />
-
-        <KpiCard
-          className="lg:col-span-2"
-          label="Approved time off"
-          value={formatDuration(kpis.approvedTimeOffDays)}
-          href="/time-off/requests?status=APPROVED"
-          hrefLabel="open approved requests"
-          caption="Requests overlapping the period"
-          source="Time Off Requests"
-        />
-
-        <NetCompositionBand
-          className="sm:col-span-2 lg:col-span-12"
-          data={composition}
-          periodLabel={periodLabel}
-        />
-
-        <ChartCard
-          className="reveal sm:col-span-2 lg:col-span-8"
-          bodyClassName="h-64 sm:h-72"
-          title="Monthly Net Salary Trend"
-          source="Payslips bucketed by period"
-        >
-          <MonthlyTrendChart data={trend} />
-        </ChartCard>
-
-        <ChartCard
-          className="reveal sm:col-span-2 lg:col-span-4"
-          bodyClassName="h-64 sm:h-72"
-          title="Salary Cost by Department"
-          source="Payslips + Employee Department"
-        >
-          <SalaryByDepartmentChart data={salaryByDept} />
-        </ChartCard>
-
-        <AttendancePanel className="reveal lg:col-span-7" data={attendance} />
-        <AlertsPanel
-          className="reveal lg:col-span-5"
-          alerts={statusSplit.alerts}
-          counts={warningCounts}
-          payrunHref={payrunHref}
-        />
-        <DepartmentPanel className="reveal lg:col-span-7" rows={deptOverview} />
-        <TimeOffPanel className="reveal lg:col-span-5" rows={timeOff} />
+        <Suspense key={`headline-${scopeKey}`} fallback={<HeadlineSkeleton />}>
+          <HeadlineSection {...section} />
+        </Suspense>
+        <Suspense key={`charts-${scopeKey}`} fallback={<ChartsSkeleton />}>
+          <ChartsSection {...section} />
+        </Suspense>
+        <Suspense key={`panels-${scopeKey}`} fallback={<PanelsSkeleton />}>
+          <PanelsSection {...section} />
+        </Suspense>
       </div>
 
-      <ProofStrip counts={counts} periodLabel={periodLabel} payslipsHref={payslipsHref} />
+      <Suspense key={`proof-${scopeKey}`} fallback={<ProofSkeleton />}>
+        <ProofSection {...section} />
+      </Suspense>
     </>
   )
 }

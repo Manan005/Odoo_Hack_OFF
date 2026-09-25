@@ -95,12 +95,14 @@ export function LoginForm({ next = "/" }: { next?: string }) {
 
       if (result.ok) {
         // Set here, in the handler, so the exit plays before the RSC
-        // navigation swaps the page in. Full navigation so the new session
-        // cookie reaches the server layout.
+        // navigation swaps the page in.
         setLeaving(true)
         document.documentElement.classList.add(LEAVING_CLASS)
-        router.replace(next)
-        router.refresh()
+        // Straight to the role's landing page (or the deep link that bounced
+        // here). The action response has already committed the session
+        // cookie, so this single request is authenticated. No refresh():
+        // it would render the landing page a second time in parallel.
+        router.replace(next !== "/" ? next : result.data.landing)
         return
       }
 

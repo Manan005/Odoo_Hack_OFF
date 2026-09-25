@@ -2,18 +2,14 @@
 
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react"
 import {
-  ACCENT_COOKIE,
-  DEFAULT_ACCENT,
-  isAccent,
   isTheme,
   THEME_COOKIE,
   THEME_COOKIE_MAX_AGE,
-  type Accent,
   type ResolvedTheme,
   type Theme,
 } from "@/lib/theme"
 
-export type { Accent, ResolvedTheme, Theme }
+export type { ResolvedTheme, Theme }
 
 /** Viewport point a theme change should radiate from (the toggle's centre). */
 export interface ThemeOrigin {
@@ -24,29 +20,21 @@ export interface ThemeOrigin {
 interface ThemeContextValue {
   theme: Theme
   resolved: ResolvedTheme
-  accent: Accent
   setTheme: (theme: Theme, origin?: ThemeOrigin) => void
-  setAccent: (accent: Accent) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 /*
- * The source of truth is the `data-theme` / `data-accent` attributes the root
- * layout renders from cookies. The client reads them back through
- * useSyncExternalStore so the server snapshot (passed in as props) and the
- * DOM always agree — no inline script, no hydration mismatch, nothing React
- * has to create.
+ * The source of truth is the `data-theme` attribute the root layout renders
+ * from the cookie. The client reads it back through useSyncExternalStore so
+ * the server snapshot (passed in as a prop) and the DOM always agree — no
+ * inline script, no hydration mismatch, nothing React has to create.
  */
 
 const readTheme = (): Theme => {
   const v = document.documentElement.dataset.theme
   return isTheme(v) ? v : "system"
-}
-
-const readAccent = (): Accent => {
-  const v = document.documentElement.dataset.accent
-  return isAccent(v) ? v : DEFAULT_ACCENT
 }
 
 const systemPrefers = (): ResolvedTheme =>
@@ -122,47 +110,29 @@ function transition(mutate: () => void, origin?: ThemeOrigin) {
   }
 }
 
-const writeCookie = (name: string, value: string) => {
-  // The cookie is what lets the *server* render the right theme next time.
-  document.cookie = `${name}=${value}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax`
-}
-
 export function ThemeProvider({
   initialTheme,
-  initialAccent = DEFAULT_ACCENT,
   children,
 }: {
   /** What the root layout rendered on <html>, read from the cookie. */
   initialTheme: Theme
-  initialAccent?: Accent
   children: React.ReactNode
 }) {
   const theme = useSyncExternalStore(subscribe, readTheme, () => initialTheme)
   const resolved = useSyncExternalStore(subscribe, getResolved, () =>
     initialTheme === "system" ? "light" : initialTheme,
   )
-  const accent = useSyncExternalStore(subscribe, readAccent, () => initialAccent)
 
   const setTheme = useCallback((next: Theme, origin?: ThemeOrigin) => {
     if (document.documentElement.dataset.theme === next) return
-    writeCookie(THEME_COOKIE, next)
+    // The cookie is what lets the *server* render the right theme next time.
+    document.cookie = `${THEME_COOKIE}=${next}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax`
     transition(() => {
       document.documentElement.dataset.theme = next
     }, origin)
   }, [])
 
-  const setAccent = useCallback((next: Accent) => {
-    if (document.documentElement.dataset.accent === next) return
-    writeCookie(ACCENT_COOKIE, next)
-    transition(() => {
-      document.documentElement.dataset.accent = next
-    })
-  }, [])
-
-  const value = useMemo(
-    () => ({ theme, resolved, accent, setTheme, setAccent }),
-    [theme, resolved, accent, setTheme, setAccent],
-  )
+  const value = useMemo(() => ({ theme, resolved, setTheme }), [theme, resolved, setTheme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
