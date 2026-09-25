@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { LedgerIllustration } from "@/components/auth/LedgerIllustration"
@@ -28,9 +29,14 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const [session, params] = await Promise.all([auth(), searchParams])
+  const [session, params, requestHeaders] = await Promise.all([auth(), searchParams, headers()])
   const next = safeNext(params.callbackUrl)
-  if (session?.user) redirect(next)
+  // A signed-in visitor opening /login is sent on. Not while this page is
+  // being re-rendered inside the sign-in Server Action's response (setting
+  // the session cookie triggers that re-render): LoginForm navigates itself,
+  // and a redirect here would race it with a "/" hop and a second render of
+  // the landing page.
+  if (session?.user && !requestHeaders.has("next-action")) redirect(next)
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.15fr_0.85fr]">

@@ -89,13 +89,18 @@ export function navFor(user: SessionUser): NavItem[] {
   return visible(NAV)
 }
 
-/** Where a user lands after sign-in, by rank. */
-export function landingFor(user: SessionUser): string {
-  const rank = rankOf(user.roles)
+/**
+ * Where a user lands after sign-in, by rank. Takes bare roles so the login
+ * action can answer before any session cookie has reached a request.
+ */
+export function landingForRoles(roles: Role[]): string {
+  const rank = rankOf(roles)
   if (rank >= ROLE_RANK.HR_PAYROLL_USER) return "/payroll/dashboard"
   if (rank >= ROLE_RANK.HR_MANAGER) return "/employees"
   return "/employees/me"
 }
+
+export const landingFor = (user: SessionUser): string => landingForRoles(user.roles)
 
 /*
  * Command palette source. The implementation lives in a dependency-free

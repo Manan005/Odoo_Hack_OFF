@@ -9,13 +9,26 @@ import {
   WarningSeverity,
   Weekday,
 } from "@prisma/client"
+import { cache } from "react"
 import { db } from "@/lib/db"
 import { countScheduledDays } from "@/lib/payroll/worked-days"
-import { balanceOf } from "@/lib/timeoff/balance"
 
 /**
  * Every figure on the dashboard is a database aggregate computed here.
  * There is no constants file and no static series anywhere (rules.md §0.3).
+ *
+ * The database is remote, so the cost is round trips, not rows. Three rules
+ * keep a render to one parallel wave of statements:
+ *
+ *   1. Scope through the relation (`employee: { companyId, … }`), which
+ *      Postgres answers as a sub-select, instead of fetching the matching
+ *      employee ids first and shipping them back in an `IN (…)` list.
+ *   2. Each function issues its statements together in one Promise.all.
+ *   3. Figures that several cards need (payslip totals, status counts, the
+ *      roster) are memoised per request with React `cache()`, and so is
+ *      every exported aggregate, so Suspense sections that ask for the same
+ *      thing share one query. Outside a React server render (the tsx gate
+ *      scripts) `cache()` is a pass-through and every call queries afresh.
  */
 export interface DashboardFilters {
   companyId: string
@@ -25,20 +38,156 @@ export interface DashboardFilters {
   employeeType?: EmployeeType
 }
 
-/** Employees matching the department / type filters, for scoping every query. */
-async function scopedEmployeeIds(f: DashboardFilters): Promise<string[]> {
-  const rows = await db.employee.findMany({
-    where: {
-      companyId: f.companyId,
-      ...(f.departmentId ? { departmentId: f.departmentId } : {}),
-      ...(f.employeeType ? { employeeType: f.employeeType } : {}),
-    },
-    select: { id: true },
-  })
-  return rows.map((r) => r.id)
+// ───────────────────────────── Request memo ─────────────────────────────
+
+/*
+ * `cache()` compares arguments by identity, so a filters object built twice
+ * would never hit. Memoised functions therefore take the filters flattened
+ * to primitives: company, department ("" = all), type ("" = all), and the
+ * period bounds as epoch milliseconds.
+ */
+type Key = [companyId: string, departmentId: string, employeeType: string, start: number, end: number]
+
+const keyOf = (f: DashboardFilters): Key => [
+  f.companyId,
+  f.departmentId ?? "",
+  f.employeeType ?? "",
+  f.periodStart.getTime(),
+  f.periodEnd.getTime(),
+]
+
+const fromKey = (...[companyId, departmentId, employeeType, start, end]: Key): DashboardFilters => ({
+  companyId,
+  departmentId: departmentId || undefined,
+  employeeType: (employeeType || undefined) as EmployeeType | undefined,
+  periodStart: new Date(start),
+  periodEnd: new Date(end),
+})
+
+/** Wraps an aggregate so identical filters within one request query once. */
+function memo<T>(fn: (f: DashboardFilters) => Promise<T>): (f: DashboardFilters) => Promise<T> {
+  const cached = cache((...key: Key) => fn(fromKey(...key)))
+  return (f) => cached(...keyOf(f))
 }
 
+// ───────────────────────────── Shared scope ─────────────────────────────
+
+/** Employees matching the department / type filters, as a relation filter. */
+const scopeOf = (f: DashboardFilters): Prisma.EmployeeWhereInput => ({
+  companyId: f.companyId,
+  ...(f.departmentId ? { departmentId: f.departmentId } : {}),
+  ...(f.employeeType ? { employeeType: f.employeeType } : {}),
+})
+
+/** Payslips whose pay period lies inside the selected one. */
+const payslipsIn = (f: DashboardFilters): Prisma.PayslipWhereInput => ({
+  employee: scopeOf(f),
+  periodStart: { gte: f.periodStart },
+  periodEnd: { lte: f.periodEnd },
+})
+
+/** Payruns whose pay period lies inside the selected one. */
+const payrunsIn = (f: DashboardFilters): Prisma.PayrunWhereInput => ({
+  companyId: f.companyId,
+  periodStart: { gte: f.periodStart },
+  periodEnd: { lte: f.periodEnd },
+})
+
+/** Approved requests overlapping the selected period. */
+const approvedTimeOffIn = (f: DashboardFilters): Prisma.TimeOffRequestWhereInput => ({
+  employee: scopeOf(f),
+  status: RequestStatus.APPROVED,
+  startDate: { lte: f.periodEnd },
+  endDate: { gte: f.periodStart },
+})
+
 const num = (v: Prisma.Decimal | number | null | undefined) => Number(v ?? 0)
+
+// ─────────────────────────── Shared loaders ───────────────────────────
+
+/** Summed payslip roll-ups for the period: KPI, net composition and counts all read it. */
+const loadPayslipTotals = memo((f) =>
+  db.payslip.aggregate({
+    where: payslipsIn(f),
+    _sum: { basic: true, allowances: true, gross: true, deductions: true, net: true },
+    _count: true,
+  }),
+)
+
+/** Payslips per status for the period: the KPI's paid count and the status bar. */
+const loadPayslipStatus = memo((f) =>
+  db.payslip.groupBy({ by: ["status"], where: payslipsIn(f), _count: true }),
+)
+
+/** Attendance per status for every scoped employee: KPI health and the row count. */
+const loadAttendanceStatus = memo((f) =>
+  db.attendance.groupBy({
+    by: ["status"],
+    where: { employee: scopeOf(f), checkIn: { gte: f.periodStart, lte: f.periodEnd } },
+    _count: true,
+  }),
+)
+
+/** Approved time off overlapping the period: the KPI's days and the row count. */
+const loadApprovedTimeOff = memo((f) =>
+  db.timeOffRequest.aggregate({ where: approvedTimeOffIn(f), _sum: { duration: true }, _count: true }),
+)
+
+interface RosterEmployee {
+  id: string
+  active: boolean
+  department: string
+  /** Weekdays on the employee's working schedule; empty when none is set. */
+  scheduleDays: Weekday[]
+  /** Wage of the newest running contract overlapping the period, if any. */
+  wage: number | null
+}
+
+/**
+ * Every scoped employee (active or not) with the facts three panels need:
+ * department name, schedule days and current wage. Four flat statements in
+ * parallel; nested relation selects would each cost a serial round trip.
+ */
+const loadRoster = memo(async (f): Promise<RosterEmployee[]> => {
+  const scope = scopeOf(f)
+  const activeScope = { ...scope, active: true }
+  const [employees, departments, contracts, lines] = await Promise.all([
+    db.employee.findMany({
+      where: scope,
+      select: { id: true, active: true, departmentId: true, workingScheduleId: true },
+    }),
+    db.department.findMany({ where: { employees: { some: scope } }, select: { id: true, name: true } }),
+    db.contract.findMany({
+      where: {
+        employee: activeScope,
+        status: ContractStatus.RUNNING,
+        startDate: { lte: f.periodEnd },
+        OR: [{ endDate: null }, { endDate: { gte: f.periodStart } }],
+      },
+      orderBy: { startDate: "desc" },
+      select: { employeeId: true, wage: true },
+    }),
+    db.scheduleLine.findMany({
+      where: { schedule: { employees: { some: activeScope } } },
+      select: { scheduleId: true, day: true },
+    }),
+  ])
+
+  const departmentName = new Map(departments.map((d) => [d.id, d.name]))
+  // Contracts arrive newest first, so the first one seen per employee wins.
+  const wageOf = new Map<string, number>()
+  for (const c of contracts) if (!wageOf.has(c.employeeId)) wageOf.set(c.employeeId, num(c.wage))
+  const daysOf = new Map<string, Weekday[]>()
+  for (const l of lines) daysOf.set(l.scheduleId, [...(daysOf.get(l.scheduleId) ?? []), l.day])
+
+  return employees.map((e) => ({
+    id: e.id,
+    active: e.active,
+    department: (e.departmentId && departmentName.get(e.departmentId)) || "Unassigned",
+    scheduleDays: (e.workingScheduleId && daysOf.get(e.workingScheduleId)) || [],
+    wage: e.active ? (wageOf.get(e.id) ?? null) : null,
+  }))
+})
 
 // ───────────────────────────── KPI cards ─────────────────────────────
 
@@ -57,24 +206,7 @@ export interface Kpis {
   expectedRecords: number
 }
 
-export async function getKpis(f: DashboardFilters): Promise<Kpis> {
-  const employeeIds = await scopedEmployeeIds(f)
-  if (employeeIds.length === 0) {
-    return {
-      totalNet: 0,
-      netDeltaPct: null,
-      prevNet: 0,
-      payslipsGenerated: 0,
-      payslipsPaid: 0,
-      payslipsPending: 0,
-      avgSalary: 0,
-      approvedTimeOffDays: 0,
-      attendanceHealthPct: 0,
-      presentish: 0,
-      expectedRecords: 0,
-    }
-  }
-
+export const getKpis = memo(async (f): Promise<Kpis> => {
   // Previous calendar month, for the delta on the salary card.
   //
   // Subtracting the period's own span instead lands a millisecond past the
@@ -87,40 +219,15 @@ export async function getKpis(f: DashboardFilters): Promise<Kpis> {
     Date.UTC(f.periodStart.getUTCFullYear(), f.periodStart.getUTCMonth(), 0, 23, 59, 59),
   )
 
-  const inPeriod = {
-    employeeId: { in: employeeIds },
-    periodStart: { gte: f.periodStart },
-    periodEnd: { lte: f.periodEnd },
-  }
-
   const [current, previous, statusCounts, timeOff, attendance] = await Promise.all([
-    db.payslip.aggregate({ where: inPeriod, _sum: { net: true }, _count: true }),
+    loadPayslipTotals(f),
     db.payslip.aggregate({
-      where: {
-        employeeId: { in: employeeIds },
-        periodStart: { gte: prevStart },
-        periodEnd: { lte: prevEnd },
-      },
+      where: payslipsIn({ ...f, periodStart: prevStart, periodEnd: prevEnd }),
       _sum: { net: true },
     }),
-    db.payslip.groupBy({ by: ["status"], where: inPeriod, _count: true }),
-    db.timeOffRequest.aggregate({
-      where: {
-        employeeId: { in: employeeIds },
-        status: RequestStatus.APPROVED,
-        startDate: { lte: f.periodEnd },
-        endDate: { gte: f.periodStart },
-      },
-      _sum: { duration: true },
-    }),
-    db.attendance.groupBy({
-      by: ["status"],
-      where: {
-        employeeId: { in: employeeIds },
-        checkIn: { gte: f.periodStart, lte: f.periodEnd },
-      },
-      _count: true,
-    }),
+    loadPayslipStatus(f),
+    loadApprovedTimeOff(f),
+    loadAttendanceStatus(f),
   ])
 
   const totalNet = num(current._sum.net)
@@ -150,7 +257,7 @@ export async function getKpis(f: DashboardFilters): Promise<Kpis> {
     presentish,
     expectedRecords: totalRecords,
   }
-}
+})
 
 // ─────────────────────────── Salary by department ───────────────────────────
 
@@ -160,43 +267,25 @@ export interface DepartmentSalary {
   headcount: number
 }
 
-export async function getSalaryByDepartment(
-  f: DashboardFilters,
-): Promise<DepartmentSalary[]> {
-  const employees = await db.employee.findMany({
-    where: {
-      companyId: f.companyId,
-      ...(f.departmentId ? { departmentId: f.departmentId } : {}),
-      ...(f.employeeType ? { employeeType: f.employeeType } : {}),
-    },
-    select: { id: true, department: { select: { name: true } } },
-  })
-  if (employees.length === 0) return []
-
-  const payslips = await db.payslip.groupBy({
-    by: ["employeeId"],
-    where: {
-      employeeId: { in: employees.map((e) => e.id) },
-      periodStart: { gte: f.periodStart },
-      periodEnd: { lte: f.periodEnd },
-    },
-    _sum: { net: true },
-  })
+export const getSalaryByDepartment = memo(async (f): Promise<DepartmentSalary[]> => {
+  const [roster, payslips] = await Promise.all([
+    loadRoster(f),
+    db.payslip.groupBy({ by: ["employeeId"], where: payslipsIn(f), _sum: { net: true } }),
+  ])
   const netByEmployee = new Map(payslips.map((p) => [p.employeeId, num(p._sum.net)]))
 
   const totals = new Map<string, { net: number; headcount: number }>()
-  for (const e of employees) {
-    const name = e.department?.name ?? "Unassigned"
-    const row = totals.get(name) ?? { net: 0, headcount: 0 }
+  for (const e of roster) {
+    const row = totals.get(e.department) ?? { net: 0, headcount: 0 }
     row.net += netByEmployee.get(e.id) ?? 0
     row.headcount += 1
-    totals.set(name, row)
+    totals.set(e.department, row)
   }
 
   return [...totals.entries()]
     .map(([department, v]) => ({ department, ...v }))
     .sort((a, b) => b.net - a.net)
-}
+})
 
 // ───────────────────────────── Monthly trend ─────────────────────────────
 
@@ -207,23 +296,22 @@ export interface TrendPoint {
 }
 
 /** The last six periods that actually have payslips, oldest first. */
-export async function getMonthlyTrend(f: DashboardFilters): Promise<TrendPoint[]> {
-  const employeeIds = await scopedEmployeeIds(f)
-  if (employeeIds.length === 0) return []
-
-  const payslips = await db.payslip.findMany({
-    where: { employeeId: { in: employeeIds }, periodStart: { lte: f.periodEnd } },
-    select: { periodStart: true, net: true },
+export const getMonthlyTrend = memo(async (f): Promise<TrendPoint[]> => {
+  // Grouped in the database: one row per distinct period start, not one per payslip.
+  const periods = await db.payslip.groupBy({
+    by: ["periodStart"],
+    where: { employee: scopeOf(f), periodStart: { lte: f.periodEnd } },
+    _sum: { net: true },
+    _count: true,
     orderBy: { periodStart: "desc" },
-    take: 2000,
   })
 
   const buckets = new Map<string, { net: number; payslips: number; at: Date }>()
-  for (const p of payslips) {
+  for (const p of periods) {
     const key = `${p.periodStart.getUTCFullYear()}-${String(p.periodStart.getUTCMonth() + 1).padStart(2, "0")}`
     const row = buckets.get(key) ?? { net: 0, payslips: 0, at: p.periodStart }
-    row.net += num(p.net)
-    row.payslips += 1
+    row.net += num(p._sum.net)
+    row.payslips += p._count
     buckets.set(key, row)
   }
 
@@ -236,7 +324,7 @@ export async function getMonthlyTrend(f: DashboardFilters): Promise<TrendPoint[]
       net: v.net,
       payslips: v.payslips,
     }))
-}
+})
 
 // ──────────────────── Payslip status split & alerts ────────────────────
 
@@ -252,42 +340,28 @@ export interface AlertRow {
   payslipId: string | null
 }
 
-export async function getPayslipStatusSplit(f: DashboardFilters): Promise<{
-  split: StatusSplit[]
-  alerts: AlertRow[]
-}> {
-  const employeeIds = await scopedEmployeeIds(f)
-  if (employeeIds.length === 0) return { split: [], alerts: [] }
+export const getPayslipStatusSplit = memo(
+  async (f): Promise<{ split: StatusSplit[]; alerts: AlertRow[] }> => {
+    const [roster, grouped, warnings] = await Promise.all([
+      loadRoster(f),
+      loadPayslipStatus(f),
+      db.payrollWarning.findMany({
+        where: { payrun: payrunsIn(f) },
+        select: { code: true, severity: true, message: true, payslipId: true },
+        orderBy: { severity: "asc" },
+        take: 12,
+      }),
+    ])
+    // Warnings belong to the payrun, not to an employee: a filter that
+    // matches nobody shows none rather than the whole company's.
+    if (roster.length === 0) return { split: [], alerts: [] }
 
-  const [grouped, warnings] = await Promise.all([
-    db.payslip.groupBy({
-      by: ["status"],
-      where: {
-        employeeId: { in: employeeIds },
-        periodStart: { gte: f.periodStart },
-        periodEnd: { lte: f.periodEnd },
-      },
-      _count: true,
-    }),
-    db.payrollWarning.findMany({
-      where: {
-        payrun: {
-          companyId: f.companyId,
-          periodStart: { gte: f.periodStart },
-          periodEnd: { lte: f.periodEnd },
-        },
-      },
-      select: { code: true, severity: true, message: true, payslipId: true },
-      orderBy: { severity: "asc" },
-      take: 12,
-    }),
-  ])
-
-  return {
-    split: grouped.map((g) => ({ status: g.status, count: g._count })),
-    alerts: warnings,
-  }
-}
+    return {
+      split: grouped.map((g) => ({ status: g.status, count: g._count })),
+      alerts: warnings,
+    }
+  },
+)
 
 // ─────────────────────────── Attendance overview ───────────────────────────
 
@@ -303,39 +377,15 @@ export interface AttendanceOverview {
   coveragePct: number
 }
 
-export async function getAttendanceOverview(
-  f: DashboardFilters,
-): Promise<AttendanceOverview> {
-  const employees = await db.employee.findMany({
-    where: {
-      companyId: f.companyId,
-      active: true,
-      ...(f.departmentId ? { departmentId: f.departmentId } : {}),
-      ...(f.employeeType ? { employeeType: f.employeeType } : {}),
-    },
-    select: { id: true, workingSchedule: { select: { lines: { select: { day: true } } } } },
-  })
-  const employeeIds = employees.map((e) => e.id)
-  if (employeeIds.length === 0) {
-    return {
-      present: 0,
-      late: 0,
-      absent: 0,
-      halfDay: 0,
-      overtimeRecords: 0,
-      overtimeHours: 0,
-      missingCheckOuts: 0,
-      manualEdits: 0,
-      coveragePct: 0,
-    }
-  }
-
-  const inPeriod = {
-    employeeId: { in: employeeIds },
+/** Active employees only: attendance is expected of people still on the books. */
+export const getAttendanceOverview = memo(async (f): Promise<AttendanceOverview> => {
+  const inPeriod: Prisma.AttendanceWhereInput = {
+    employee: { ...scopeOf(f), active: true },
     checkIn: { gte: f.periodStart, lte: f.periodEnd },
   }
 
-  const [grouped, overtime, missing, manual, total] = await Promise.all([
+  const [roster, grouped, overtime, missing, manual] = await Promise.all([
+    loadRoster(f),
     db.attendance.groupBy({ by: ["status"], where: inPeriod, _count: true }),
     db.attendance.aggregate({
       where: { ...inPeriod, overtime: { gt: 0 } },
@@ -346,22 +396,15 @@ export async function getAttendanceOverview(
       where: { ...inPeriod, checkOut: null, status: { not: AttendanceStatus.ABSENT } },
     }),
     db.attendance.count({ where: { ...inPeriod, manuallyEdited: true } }),
-    db.attendance.count({ where: inPeriod }),
   ])
 
   const by = new Map(grouped.map((g) => [g.status, g._count]))
+  const total = grouped.reduce((n, g) => n + g._count, 0)
 
   // Coverage: records logged against working days that should have one.
-  const expected = employees.reduce(
-    (sum, e) =>
-      sum +
-      countScheduledDays(
-        f.periodStart,
-        f.periodEnd,
-        (e.workingSchedule?.lines ?? []).map((l) => l.day as Weekday),
-      ),
-    0,
-  )
+  const expected = roster
+    .filter((e) => e.active)
+    .reduce((sum, e) => sum + countScheduledDays(f.periodStart, f.periodEnd, e.scheduleDays), 0)
 
   return {
     present: by.get(AttendanceStatus.PRESENT) ?? 0,
@@ -374,7 +417,7 @@ export async function getAttendanceOverview(
     manualEdits: manual,
     coveragePct: expected > 0 ? Math.min(100, (total / expected) * 100) : 0,
   }
-}
+})
 
 // ──────────────────────────── Time off overview ────────────────────────────
 
@@ -386,49 +429,38 @@ export interface TimeOffOverviewRow {
   remainingBalance: number | null
 }
 
-export async function getTimeOffOverview(
-  f: DashboardFilters,
-): Promise<TimeOffOverviewRow[]> {
-  const employeeIds = await scopedEmployeeIds(f)
-  if (employeeIds.length === 0) return []
-
-  const types = await db.timeOffType.findMany({
-    where: { companyId: f.companyId, active: true },
-    select: { id: true, name: true, unit: true, requiresAllocation: true },
-    orderBy: { name: "asc" },
-  })
-
-  const [approved, pending, allocations] = await Promise.all([
-    db.timeOffRequest.groupBy({
-      by: ["typeId"],
-      where: {
-        employeeId: { in: employeeIds },
-        status: RequestStatus.APPROVED,
-        startDate: { lte: f.periodEnd },
-        endDate: { gte: f.periodStart },
-      },
-      _sum: { duration: true },
+export const getTimeOffOverview = memo(async (f): Promise<TimeOffOverviewRow[]> => {
+  const scope = scopeOf(f)
+  const [roster, types, approved, pending, allocations] = await Promise.all([
+    loadRoster(f),
+    db.timeOffType.findMany({
+      where: { companyId: f.companyId, active: true },
+      select: { id: true, name: true, unit: true, requiresAllocation: true },
+      orderBy: { name: "asc" },
     }),
+    db.timeOffRequest.groupBy({ by: ["typeId"], where: approvedTimeOffIn(f), _sum: { duration: true } }),
     db.timeOffRequest.groupBy({
       by: ["typeId"],
-      where: { employeeId: { in: employeeIds }, status: RequestStatus.TO_APPROVE },
+      where: { employee: scope, status: RequestStatus.TO_APPROVE },
       _count: true,
     }),
-    db.timeOffAllocation.findMany({
-      where: { employeeId: { in: employeeIds }, status: RequestStatus.APPROVED },
-      select: { typeId: true, allocated: true, taken: true },
+    // BR-T5: remaining is derived, allocated − taken, summed per type.
+    db.timeOffAllocation.groupBy({
+      by: ["typeId"],
+      where: { employee: scope, status: RequestStatus.APPROVED },
+      _sum: { allocated: true, taken: true },
     }),
   ])
+  if (roster.length === 0) return []
 
   const approvedByType = new Map(approved.map((a) => [a.typeId, num(a._sum.duration)]))
   const pendingByType = new Map(pending.map((p) => [p.typeId, p._count]))
-  const remainingByType = new Map<string, number>()
-  for (const a of allocations) {
-    remainingByType.set(
+  const remainingByType = new Map(
+    allocations.map((a) => [
       a.typeId,
-      (remainingByType.get(a.typeId) ?? 0) + balanceOf(a).remaining,
-    )
-  }
+      Number((num(a._sum.allocated) - num(a._sum.taken)).toFixed(2)),
+    ]),
+  )
 
   return types.map((t) => ({
     type: t.name,
@@ -438,7 +470,7 @@ export async function getTimeOffOverview(
     // A type needing no allocation has no balance to report.
     remainingBalance: t.requiresAllocation ? (remainingByType.get(t.id) ?? 0) : null,
   }))
-}
+})
 
 // ─────────────────────────── Department overview ───────────────────────────
 
@@ -448,46 +480,23 @@ export interface DepartmentOverviewRow {
   monthlySalary: number
 }
 
-/** Headcount and committed monthly wage from running contracts. */
-export async function getDepartmentOverview(
-  f: DashboardFilters,
-): Promise<DepartmentOverviewRow[]> {
-  const employees = await db.employee.findMany({
-    where: {
-      companyId: f.companyId,
-      active: true,
-      ...(f.departmentId ? { departmentId: f.departmentId } : {}),
-      ...(f.employeeType ? { employeeType: f.employeeType } : {}),
-    },
-    select: {
-      id: true,
-      department: { select: { name: true } },
-      contracts: {
-        where: {
-          status: ContractStatus.RUNNING,
-          startDate: { lte: f.periodEnd },
-          OR: [{ endDate: null }, { endDate: { gte: f.periodStart } }],
-        },
-        orderBy: { startDate: "desc" },
-        take: 1,
-        select: { wage: true },
-      },
-    },
-  })
+/** Headcount and committed monthly wage from running contracts (active staff). */
+export const getDepartmentOverview = memo(async (f): Promise<DepartmentOverviewRow[]> => {
+  const roster = await loadRoster(f)
 
   const totals = new Map<string, { headcount: number; monthlySalary: number }>()
-  for (const e of employees) {
-    const name = e.department?.name ?? "Unassigned"
-    const row = totals.get(name) ?? { headcount: 0, monthlySalary: 0 }
+  for (const e of roster) {
+    if (!e.active) continue
+    const row = totals.get(e.department) ?? { headcount: 0, monthlySalary: 0 }
     row.headcount += 1
-    row.monthlySalary += num(e.contracts[0]?.wage)
-    totals.set(name, row)
+    row.monthlySalary += e.wage ?? 0
+    totals.set(e.department, row)
   }
 
   return [...totals.entries()]
     .map(([department, v]) => ({ department, ...v }))
     .sort((a, b) => b.monthlySalary - a.monthlySalary)
-}
+})
 
 // ───────────────────────── Latest payslip period ─────────────────────────
 
@@ -518,27 +527,33 @@ export interface PeriodPayrun {
 }
 
 /** The payrun covering the selected period, or null when none exists yet. */
-export async function getPeriodPayrun(f: DashboardFilters): Promise<PeriodPayrun | null> {
-  const payrun = await db.payrun.findFirst({
-    where: {
-      companyId: f.companyId,
-      periodStart: { gte: f.periodStart },
-      periodEnd: { lte: f.periodEnd },
-    },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, status: true, _count: { select: { payslips: true } } },
-  })
+export const getPeriodPayrun = memo(async (f): Promise<PeriodPayrun | null> => {
+  // Payslip and sent counts for every payrun in the period, fetched beside the
+  // payrun itself; `_count.sentAt` counts the non-null ones.
+  const [payrun, perRun] = await Promise.all([
+    db.payrun.findFirst({
+      where: payrunsIn(f),
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, status: true },
+    }),
+    db.payslip.groupBy({
+      by: ["payrunId"],
+      where: { payrun: payrunsIn(f) },
+      _count: { _all: true, sentAt: true },
+    }),
+  ])
   if (!payrun) return null
 
-  const unsent = await db.payslip.count({ where: { payrunId: payrun.id, sentAt: null } })
+  const counts = perRun.find((r) => r.payrunId === payrun.id)?._count
+  const payslips = counts?._all ?? 0
   return {
     id: payrun.id,
     name: payrun.name,
     status: payrun.status,
-    payslips: payrun._count.payslips,
-    allSent: payrun._count.payslips > 0 && unsent === 0,
+    payslips,
+    allSent: payslips > 0 && (counts?.sentAt ?? 0) === payslips,
   }
-}
+})
 
 // ─────────────────────────── Net composition ───────────────────────────
 
@@ -556,22 +571,8 @@ export interface NetComposition {
  * deductions come off it, net is what remains. The three-stripe brand mark
  * is literally the legend for this band.
  */
-export async function getNetComposition(f: DashboardFilters): Promise<NetComposition> {
-  const employeeIds = await scopedEmployeeIds(f)
-  if (employeeIds.length === 0) {
-    return { basic: 0, allowances: 0, gross: 0, deductions: 0, net: 0, payslips: 0 }
-  }
-
-  const agg = await db.payslip.aggregate({
-    where: {
-      employeeId: { in: employeeIds },
-      periodStart: { gte: f.periodStart },
-      periodEnd: { lte: f.periodEnd },
-    },
-    _sum: { basic: true, allowances: true, gross: true, deductions: true, net: true },
-    _count: true,
-  })
-
+export const getNetComposition = memo(async (f): Promise<NetComposition> => {
+  const agg = await loadPayslipTotals(f)
   return {
     basic: num(agg._sum.basic),
     allowances: num(agg._sum.allowances),
@@ -580,7 +581,7 @@ export async function getNetComposition(f: DashboardFilters): Promise<NetComposi
     net: num(agg._sum.net),
     payslips: agg._count,
   }
-}
+})
 
 // ───────────────────────────── Model counts ─────────────────────────────
 
@@ -596,42 +597,23 @@ export interface ModelCounts {
  * The five row counts behind the page, scoped by the same filters as every
  * other figure — the cheapest proof that nothing here is a constant.
  */
-export async function getModelCounts(f: DashboardFilters): Promise<ModelCounts> {
-  const employeeIds = await scopedEmployeeIds(f)
-  if (employeeIds.length === 0) {
-    return { employees: 0, contracts: 0, payslips: 0, attendance: 0, timeOff: 0 }
-  }
-
-  const [employees, contracts, payslips, attendance, timeOff] = await Promise.all([
-    db.employee.count({ where: { id: { in: employeeIds }, active: true } }),
-    db.contract.count({
-      where: { employeeId: { in: employeeIds }, status: ContractStatus.RUNNING },
-    }),
-    db.payslip.count({
-      where: {
-        employeeId: { in: employeeIds },
-        periodStart: { gte: f.periodStart },
-        periodEnd: { lte: f.periodEnd },
-      },
-    }),
-    db.attendance.count({
-      where: {
-        employeeId: { in: employeeIds },
-        checkIn: { gte: f.periodStart, lte: f.periodEnd },
-      },
-    }),
-    db.timeOffRequest.count({
-      where: {
-        employeeId: { in: employeeIds },
-        status: RequestStatus.APPROVED,
-        startDate: { lte: f.periodEnd },
-        endDate: { gte: f.periodStart },
-      },
-    }),
+export const getModelCounts = memo(async (f): Promise<ModelCounts> => {
+  const [roster, contracts, payslips, attendance, timeOff] = await Promise.all([
+    loadRoster(f),
+    db.contract.count({ where: { employee: scopeOf(f), status: ContractStatus.RUNNING } }),
+    loadPayslipTotals(f),
+    loadAttendanceStatus(f),
+    loadApprovedTimeOff(f),
   ])
 
-  return { employees, contracts, payslips, attendance, timeOff }
-}
+  return {
+    employees: roster.filter((e) => e.active).length,
+    contracts,
+    payslips: payslips._count,
+    attendance: attendance.reduce((n, a) => n + a._count, 0),
+    timeOff: timeOff._count,
+  }
+})
 
 // ───────────────────────── Warning severity counts ─────────────────────────
 
@@ -645,18 +627,10 @@ export interface WarningSeverityCounts {
  * Grouped counts for the alerts header. The alerts list itself is capped at
  * twelve rows, so totals must never be derived from it.
  */
-export async function getWarningSeverityCounts(
-  f: DashboardFilters,
-): Promise<WarningSeverityCounts> {
+export const getWarningSeverityCounts = memo(async (f): Promise<WarningSeverityCounts> => {
   const grouped = await db.payrollWarning.groupBy({
     by: ["severity"],
-    where: {
-      payrun: {
-        companyId: f.companyId,
-        periodStart: { gte: f.periodStart },
-        periodEnd: { lte: f.periodEnd },
-      },
-    },
+    where: { payrun: payrunsIn(f) },
     _count: true,
   })
   const by = new Map(grouped.map((g) => [g.severity, g._count]))
@@ -665,4 +639,4 @@ export async function getWarningSeverityCounts(
     warning: by.get(WarningSeverity.WARNING) ?? 0,
     info: by.get(WarningSeverity.INFO) ?? 0,
   }
-}
+})

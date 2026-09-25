@@ -3,7 +3,7 @@
 import { EmployeeType } from "@prisma/client"
 import { Building2, ChevronDown, SlidersHorizontal, X } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
-import type { ReactNode } from "react"
+import { useTransition, type ReactNode } from "react"
 import { Surface } from "@/components/ui/surface"
 import { EMPLOYEE_TYPE_LABEL } from "@/lib/validation/employee"
 
@@ -32,22 +32,27 @@ export function DashboardFilterBar({
 }) {
   const router = useRouter()
   const params = useSearchParams()
+  // The push is a transition: the rail dims until the new scope has its
+  // header, then each section streams in behind its own skeleton.
+  const [pending, startTransition] = useTransition()
+  const go = (href: string) => startTransition(() => router.push(href))
 
   const write = (key: string, value: string) => {
     const next = new URLSearchParams(params.toString())
     if (value) next.set(key, value)
     else next.delete(key)
-    router.push(`/payroll/dashboard?${next.toString()}`)
+    go(`/payroll/dashboard?${next.toString()}`)
   }
 
   const narrowed = Boolean(current.departmentId || current.employeeType)
-  const clear = () => router.push(`/payroll/dashboard?period=${current.period}`)
+  const clear = () => go(`/payroll/dashboard?period=${current.period}`)
 
   return (
     <Surface
       as="section"
       aria-label="Dashboard filters"
-      className="mb-5 grid grid-cols-1 gap-2 px-3 py-2.5 sm:flex sm:flex-wrap sm:items-center"
+      aria-busy={pending || undefined}
+      className="mb-5 grid transition-opacity duration-200 aria-busy:opacity-60 grid-cols-1 gap-2 px-3 py-2.5 sm:flex sm:flex-wrap sm:items-center"
     >
       <span className="inline-flex items-center gap-1.5 pr-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:h-8">
         <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
