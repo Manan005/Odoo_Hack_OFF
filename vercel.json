@@ -1,5 +1,6 @@
 {
   "framework": "nextjs",
+  "regions": ["sin1"],
   "buildCommand": "cd peoplepay360 && npm install && npm run build",
   "outputDirectory": "peoplepay360/.next"
 }
