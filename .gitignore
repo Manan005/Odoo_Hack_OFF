@@ -1,29 +1,44 @@
-# Ignored folders requested by user
+# One ignore file for the whole repository.
+# Patterns are unanchored, so they apply at the root and inside peoplepay360/.
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Build output
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment files — the example template carries no secrets and every clone needs it
+.env
+.env.*
+!.env.example
+
+# Platform
+.vercel/
+.claude/
+
+# Working notes and generated material, kept out of the repo on purpose
 docs/
 graphify-out/
 Dashboard inspiration/
 
-# Claude config
-.claude/
-
-# Dependencies
-node_modules/
-**/node_modules/
-
-# Next.js build output
-.next/
-**/.next/
-out/
-build/
-
-# Environment files
-.env
-.env*.local
-peoplepay360/.env
-
-# Logs and cache
+# Logs, OS and editor noise
 *.log
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 .DS_Store
-*.tsbuildinfo
+Thumbs.db
+*.pem
